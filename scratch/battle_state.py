@@ -11,6 +11,7 @@ class BattleState:
         self.timer = 0  # Current time
         self.duration = duration  # Total duration of the battle
         self.combatants = []  # List of combatants
+        self.distance = 200  # Distance between the two teams
         self.events = []  # Log of processed events (snapshots)
         self.next_event = None  # Reference to the next event to process
 
@@ -67,24 +68,18 @@ class BattleState:
 
         if action_type == "attack":
             target = BattleState.find_target(self, combatant)
-            if target.is_defeated():
+            if combatant.range < self.distance:
                 event['status'] = "missed"
-                print(f"{combatant.name}'s attack missed! Target already defeated.")
+                print(f"{combatant.name}'s attack missed! Target not in range.")
             else:
                 damage = combatant.attack_power
                 target.health -= damage
                 event['status'] = "hit"
-                print(f"{combatant.name} attacked {target.name} for {damage} damage.")
+                print(f"{combatant.name} attacked {target.name} for {damage} damage (rem HP: {target.health}).")
 
             # Schedule recovery for the combatant
-            # combatant.action = {
-            #     "time": self.timer + 100,  # 100ms recovery
-            #     "type": "recover",
-            #     "combatant": combatant,
-            #     "status": "pending",
-            # }
-            combatant.update_action(self.timer, {
-                "time": self.timer + 100,
+            combatant.apply_action_state(self.timer, {
+                "time": 100,
                 "type": "recover",
                 "combatant": combatant,
                 "target": None,
@@ -93,15 +88,51 @@ class BattleState:
 
         elif action_type == "recover":
             event['status'] = "completed"
-            print(f"{combatant.name} has recovered and is ready to act again.")
+            #print(f"{combatant.name} has recovered and is ready to act again at {self.timer}.")
 
             # After recovery, the combatant should decide the next action
-            combatant.decide_action(self.timer)
+            combatant.decide_action(self.timer, self.distance)
+        
+        elif action_type == "move_forward":
+            event['status'] = "completed"
+            self.distance = max(0, self.distance - combatant.mobility)
+            print(f"{combatant.name} moved forward (dist: {self.distance})")
+            
+            # Schedule recovery for the combatant
+            combatant.apply_action_state(self.timer, {
+                "time": 5,
+                "type": "recover",
+                "combatant": combatant,
+                "target": None,
+                "status": "pending",
+            })
+            
+        elif action_type == "move_backward":
+            event['status'] = "completed"
+            self.distance = min(600, self.distance + combatant.mobility)
+            print(f"{combatant.name} moved backward (dist: {self.distance})")
+            
+            # Schedule recovery for the combatant
+            combatant.apply_action_state(self.timer, {
+                "time": 100,
+                "type": "recover",
+                "combatant": combatant,
+                "target": None,
+                "status": "pending",
+            })
 
         else:
             print(f"Unknown action type: {action_type}")
             
-
+    def find_target(self, combatant):
+        """
+        Find a target for the given combatant from the opposing team who is not defeated.
+        """
+        for potential_target in self.combatants:
+            if potential_target.team != combatant.team and not potential_target.is_defeated():
+                return potential_target
+        return None  # No valid target found
+            
     def is_battle_over(self):
         """
         Check if the battle is over.
@@ -111,33 +142,3 @@ class BattleState:
 
         active_combatants = [c for c in self.combatants if not c.is_defeated()]
         return len(active_combatants) <= 1
-    
-    def replay_log(self):
-            """
-            Replay the events log, simulating the battle as a chronological narrative.
-            """
-            print("\n=== Replay of the Battle ===")
-            for event in self.events:
-                if event['type'] == "attack":
-                    status = event['status']
-                    if status == "hit":
-                        print(f"At {event['time']}ms: {event['combatant'].name} attacked "
-                            f"{event['target'].name} for {event['combatant'].attack_power} damage.")
-                    elif status == "missed":
-                        print(f"At {event['time']}ms: {event['combatant'].name} attempted to attack "
-                            f"{event['target'].name} but missed.")
-                elif event['type'] == "recover":
-                    print(f"At {event['time']}ms: {event['combatant'].name} recovered and is ready to act.")
-                else:
-                    print(f"At {event['time']}ms: Unknown action '{event['type']}' occurred.")
-
-            print("=== End of Replay ===\n")
-
-    def find_target(self, combatant):
-        """
-        Find a target for the given combatant from the opposing team who is not defeated.
-        """
-        for potential_target in self.combatants:
-            if potential_target.team != combatant.team and not potential_target.is_defeated():
-                return potential_target
-        return None  # No valid target found
