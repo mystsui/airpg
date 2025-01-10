@@ -26,11 +26,12 @@ class BattleState:
         """
         # Filter combatants with valid actions
         active_combatants = [
-            c for c in self.combatants if c.action and c.action['time'] > self.timer
+            c for c in self.combatants if c.action and c.action['time'] >= self.timer
         ]
 
         if not active_combatants:
             self.next_event = None
+            print("No valid combatant actions found.")
             return
 
         # Find the action with the earliest time
@@ -54,9 +55,7 @@ class BattleState:
         # Log the event
         self.events.append(copy.deepcopy(self.next_event))
 
-        # Update combatants and determine the next event
-        for combatant in self.combatants:
-            combatant.update_action(self.timer)
+        # Determine the next event
         self.determine_next_event()
 
     def process_event(self, event):
@@ -67,7 +66,7 @@ class BattleState:
         action_type = event['type']
 
         if action_type == "attack":
-            target = event['target']
+            target = BattleState.find_target(self, combatant)
             if target.is_defeated():
                 event['status'] = "missed"
                 print(f"{combatant.name}'s attack missed! Target already defeated.")
@@ -78,22 +77,30 @@ class BattleState:
                 print(f"{combatant.name} attacked {target.name} for {damage} damage.")
 
             # Schedule recovery for the combatant
-            combatant.action = {
-                "time": self.timer + 100,  # 100ms recovery
+            # combatant.action = {
+            #     "time": self.timer + 100,  # 100ms recovery
+            #     "type": "recover",
+            #     "combatant": combatant,
+            #     "status": "pending",
+            # }
+            combatant.update_action(self.timer, {
+                "time": self.timer + 100,
                 "type": "recover",
                 "combatant": combatant,
+                "target": None,
                 "status": "pending",
-            }
+            })
 
         elif action_type == "recover":
             event['status'] = "completed"
             print(f"{combatant.name} has recovered and is ready to act again.")
 
             # After recovery, the combatant should decide the next action
-            combatant.update_action(self.timer)
+            combatant.decide_action(self.timer)
 
         else:
             print(f"Unknown action type: {action_type}")
+            
 
     def is_battle_over(self):
         """
@@ -125,3 +132,12 @@ class BattleState:
                     print(f"At {event['time']}ms: Unknown action '{event['type']}' occurred.")
 
             print("=== End of Replay ===\n")
+
+    def find_target(self, combatant):
+        """
+        Find a target for the given combatant from the opposing team who is not defeated.
+        """
+        for potential_target in self.combatants:
+            if potential_target.team != combatant.team and not potential_target.is_defeated():
+                return potential_target
+        return None  # No valid target found

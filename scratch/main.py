@@ -13,8 +13,8 @@ battle.add_combatant(combatant_a)
 battle.add_combatant(combatant_b)
 
 # Initial action decisions
-combatant_a.decide_action(timer=0, target=combatant_b)
-combatant_b.decide_action(timer=0, target=combatant_a)
+combatant_a.decide_action(timer=0)
+combatant_b.decide_action(timer=0)
 
 # Determine the first event
 battle.determine_next_event()
