@@ -63,32 +63,25 @@ class Combatant:
         # Step 1: Check stamina first
         if self.stamina < recover["stamina_cost"]:
             self.action["type"] = "recover"
-            return
 
-        # Step 2: React to opponent's action
-        # if opponent:
-        #     opponent_action = opponent.action["type"]
-        #     if opponent_action == "attack":
-        #         # Decide to evade or block if opponent is attacking
-        #         if self.stamina >= try_evade["stamina_cost"]:
-        #             self.action["type"] = "try_evade"
-        #             return
-        #         elif self.stamina >= try_block["stamina_cost"]:
-        #             self.action["type"] = "try_block"
-        #             return
-        #         else:
-        #             # If unable to evade or block, prioritize recovery
-        #             self.action["type"] = "idle"
-        #             return
-        #     elif opponent_action in ["recover", "reset"]:
-        #         # Exploit opponent's recovery/reset state
-        #         if distance <= self.range and self.stamina >= attack["stamina_cost"]:
-        #             self.action["type"] = "attack"
-        #             return
-        #         elif distance > self.range and self.stamina >= move_forward["stamina_cost"]:
-        #             self.action["type"] = "move_forward"
-        #             return
-            
+        #Step 2: React to opponent's action
+        if opponent:
+            opponent_action = opponent.action["type"]
+            if opponent_action == "attack":
+                # Decide to evade or block if opponent is attacking
+                if self.stamina >= try_evade["stamina_cost"]:
+                    self.action["type"] = "try_evade"
+                elif self.stamina >= try_block["stamina_cost"]:
+                    self.action["type"] = "try_block"
+                else:
+                    # If unable to evade or block, prioritize recovery
+                    self.action["type"] = "idle"
+            elif opponent_action in ["recover", "reset"]:
+                # Exploit opponent's recovery/reset state
+                if distance <= self.range and self.stamina >= attack["stamina_cost"]:
+                    self.action["type"] = "attack"
+                elif distance > self.range and self.stamina >= move_forward["stamina_cost"]:
+                    self.action["type"] = "move_forward"
 
         # Step 3: Default combat logic based on distance
         if distance <= self.range:
@@ -112,7 +105,7 @@ class Combatant:
 
         # Update the action time to the current timer plus the action time
         self.action["time"] = ACTIONS[self.action["type"]]["time"] + timer
-        print(f"{self.name} decided to {self.action['type']} with {self.action["time"]}")
+        # print(f"{self.name} decided to {self.action['type']} with {self.action["time"]}")
 
         # Update the action status
         self.action["status"] = "pending"
@@ -120,7 +113,7 @@ class Combatant:
         # Set the target for the action
         self.action["target"] = None
         
-        print(f"{self.name} decided to {self.action['type']} at time {self.action['time']}")
+        # print(f"{self.name} decided to {self.action['type']} at time {self.action['time']}")
 
     def apply_action_state(self, timer, _action):
         """
@@ -134,7 +127,7 @@ class Combatant:
         }
         self.action["time"] += timer
         self.action["combatant"] = self
-        print(f"!!!{self.name} decided to {self.action['type']} at time {self.action['time']}")
+        # print(f"!!!{self.name} decided to {self.action['type']} at time {self.action['time']}")
 
     def get_opponent_data(self, opponent=None):
         """
