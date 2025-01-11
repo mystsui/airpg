@@ -6,8 +6,27 @@ import time
 battle = CombatSystem(duration=50000)  # 5 seconds
 
 # Create combatants
-combatant_a = Combatant(name="A", health=100, stamina=50, attack_power=9, accuracy=70, mobility=50, range=50, team="challenger")
-combatant_b = Combatant(name="B", health=81, stamina=80, attack_power=6, accuracy=85, mobility=60, range=110, team="defender")
+combatant_a = Combatant(name="A", 
+                        health=100, 
+                        stamina=50, 
+                        attack_power=9, 
+                        accuracy=70,
+                        blocking_ability=10,
+                        evading_ability=5,
+                        mobility=50, 
+                        range=50, 
+                        stamina_recovery=2)
+
+combatant_b = Combatant(name="B", 
+                        health=81, 
+                        stamina=80, 
+                        attack_power=6, 
+                        accuracy=85,
+                        blocking_ability=3,
+                        evading_ability=18, 
+                        mobility=60, 
+                        range=110, 
+                        stamina_recovery=3)
 
 # Add combatants to the battle
 battle.add_combatant(combatant_a)
