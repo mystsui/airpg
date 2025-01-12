@@ -9,7 +9,7 @@ ACTIONS = {
         "type": "reset",
         "stamina_cost": 0,
     },
-    "recover": {
+    "recover": { # recover can be chosen to regain stamina.
         "time": 100,
         "type": "recover",
         "stamina_cost": 0,
@@ -19,17 +19,17 @@ ACTIONS = {
         "type": "attack",
         "stamina_cost": 10,
     },
-    "move_forward": {
+    "move_forward": { # move_forward can be chosen to move towards the opponent. the distance that the combatant can move is dependent upon the combatant's mobility.
         "time": 100,
         "type": "move_forward",
         "stamina_cost": 4,
     },
-    "move_backward": {
+    "move_backward": { # move_backward can be chosen to move away from the opponent. the distance that the combatant can move is dependent upon the combatant's mobility.
         "time": 100,
         "type": "move_backward",
         "stamina_cost": 4,
     },
-    "try_evade": {
+    "try_evade": { # try_evade can be chosen to evade an attack. the success of the evade is dependent upon the combatant's timing of the attack. It is the preparation for the evading action.
         "time": 100,
         "type": "try_evade",
         "stamina_cost": 4,
@@ -39,7 +39,7 @@ ACTIONS = {
         "type": "evading",
         "stamina_cost": 1,
     },
-    "try_block": {
+    "try_block": { # try_block can be chosen to block an attack. the success of the block is dependent upon the combatant's timing of the attack. It is the preparation for the blocking action.
         "time": 100,
         "type": "try_block",
         "stamina_cost": 4,
@@ -48,5 +48,10 @@ ACTIONS = {
         "time": 1,
         "type": "blocking",
         "stamina_cost": 1,
+    },
+    "off_balance": { # off_balance is an automatic action when the combatant's attack is blocked or evaded by the opponent. It is the time that the combatant is vulnerable to attacks.
+        "time": 100,
+        "type": "off_balance",
+        "stamina_cost": 0,
     },
 }
