@@ -13,7 +13,8 @@ class Combatant:
         evading_ability,
         mobility, 
         range, 
-        stamina_recovery):
+        stamina_recovery,
+        opponent=None):
         """
         Initialize a combatant.
         """
@@ -30,8 +31,9 @@ class Combatant:
         self.range = range # attack range (fixed)
         self.stamina_recovery = stamina_recovery # stamina recovery rate
         self.action = {"type": "idle", "combatant": self, "time": ACTIONS["idle"]["time"], "status": "pending", "target": None}
+        self.opponent = opponent
 
-    def decide_action(self, timer, distance, opponent):
+    def decide_action(self, timer, event_counter, distance, opponent):
         """
         Decide the next action based on the current state.
         This should be a decision tree or a policy network. For now, we will use a simple rule-based system.
@@ -53,81 +55,25 @@ class Combatant:
         blocking = ACTIONS["blocking"]
 
         # Initialize action dictionary
-        self.action = {"type": "idle", "combatant": self, "time": idle["time"] + timer, "status": "pending", "target": None}
-
-        # Step 1: Check stamina first
-        if self.stamina == 0:
+        self.action = {}
+        # Basic aggressive combat logic
+        if distance <= self.range and self.stamina >= attack["stamina_cost"]:
+            # If in range and has stamina, always attack
+            self.action["type"] = "attack"
+            self.action["time"] = attack["time"] + timer
+            self.action["target"] = opponent
+        elif distance > self.range and self.stamina >= move_forward["stamina_cost"]:
+            # If out of range, move forward
+            self.action["type"] = "move_forward"
+            self.action["time"] = move_forward["time"] + timer
+        elif self.stamina < attack["stamina_cost"]:
+            # Only recover if can't attack
             self.action["type"] = "recover"
             self.action["time"] = recover["time"] + timer
-            
-        # Step 2: React to opponent's action
-        # print(f"Opp: {opponent.name} is {opponent.action['type']}ing")
-        opponent_action = opponent.action["type"]
-        if opponent_action == "attack":
-            # Decide to evade or block if opponent is attacking based on abilities
-            if self.evading_ability > self.blocking_ability:
-                if self.stamina >= try_evade["stamina_cost"]:
-                    self.action["type"] = "try_evade"
-                    self.action["time"] = try_evade["time"] + timer
-                elif self.stamina >= try_block["stamina_cost"]:
-                    self.action["type"] = "try_block"
-                    self.action["time"] = try_block["time"] + timer
-                else:
-                    if self.stamina >= move_backward["stamina_cost"]:
-                        self.action["type"] = "move_backward"
-                        self.action["time"] = move_backward["time"] + timer
-                    else:
-                        self.action["type"] = "recover"
-                        self.action["time"] = recover["time"] + timer
-            else:
-                if self.stamina >= try_block["stamina_cost"]:
-                    self.action["type"] = "try_block"
-                    self.action["time"] = try_block["time"] + timer
-                elif self.stamina >= try_evade["stamina_cost"]:
-                    self.action["type"] = "try_evade"
-                    self.action["time"] = try_evade["time"] + timer
-                else:
-                    if self.stamina >= move_backward["stamina_cost"]:
-                        self.action["type"] = "move_backward"
-                        self.action["time"] = move_backward["time"] + timer
-                    else:
-                        self.action["type"] = "recover"
-                        self.action["time"] = recover["time"] + timer
-            
-        elif opponent_action in ["recover", "reset"]:
-            # Exploit opponent's recovery/reset state
-            if distance <= self.range and self.stamina >= attack["stamina_cost"]:
-                self.action["type"] = "attack"
-                self.action["time"] = attack["time"] + timer
-                self.action["target"] = opponent
-            elif distance > self.range and self.stamina >= move_forward["stamina_cost"]:
-                self.action["type"] = "move_forward"
-                self.action["time"] = move_forward["time"] + timer
-                self.action["target"] = opponent
-        else:           
-            # Default combat logic based on distance
-            if distance <= self.range:
-                if self.stamina >= attack["stamina_cost"]:
-                    self.action["type"] = "attack"
-                    self.action["time"] = attack["time"] + timer
-                elif distance + self.mobility <= self.range and self.stamina >= move_backward["stamina_cost"]:
-                    self.action["type"] = "move_backward"
-                    self.action["time"] = move_backward["time"] + timer
-                else:
-                    self.action["type"] = "recover"
-                    self.action["time"] = recover["time"] + timer
-            elif distance > self.range:
-                if self.stamina >= move_forward["stamina_cost"]:
-                    self.action["type"] = "move_forward"
-                    self.action["time"] = move_forward["time"] + timer
-                else:
-                    self.action["type"] = "recover"
-                    self.action["time"] = recover["time"] + timer
-
-        # Ensure the default action is "recover" if no other conditions are met
-        if not self.action["type"]:
-            self.action["type"] = "recover"
-            self.action["time"] = recover["time"] + timer
+        else:
+            # Default to idle
+            self.action["type"] = "idle"
+            self.action["time"] = idle["time"] + timer
 
             
         # Set the combatant for the action
@@ -145,7 +91,37 @@ class Combatant:
         
         # print(f"{self.name} decided to {self.action['type']} effective at time {self.action['time']} while having {self.stamina} stamina at {timer}")
 
-    def apply_action_state(self, timer, _action):
+        log = self.decision_applied_log(timer, event_counter, distance, opponent)
+        return log
+    
+    def decision_applied_log(self, timer, event_counter, distance, opponent):
+        """
+        Prepare the decision log for the combatant.
+        """
+        log = {
+            "timestamp": timer,
+            "event_number": event_counter + 1,
+            "timeend": self.action["time"],
+            "combatant": {
+                "name": self.name,
+                "health": self.health,
+                "stamina": self.stamina
+            } if self else None,
+            "action": self.action["type"],
+            "distance": distance,
+            "status": "pending",
+            "target": {
+                "name": opponent.name if opponent else None,
+                "health": opponent.health if opponent else None,
+                "stamina": opponent.stamina if opponent else None
+            },
+            "result": None,
+            "damage": None,
+            # "details": kwargs  # Additional information like damage, distance, etc.
+        }
+        return log
+
+    def apply_action_state(self, _action, timer, event_counter, distance, opponent):
         """
         Update the action status after each event.
         """
@@ -159,6 +135,9 @@ class Combatant:
         self.action["combatant"] = self
         self.action["status"] = "pending"
         self.action["target"] = None
+
+        log = self.decision_applied_log(timer, event_counter, distance, opponent)
+        return log
         # print(f"!!!{self.name} decided to {self.action['type']} at time {self.action['time']}")
 
     def get_opponent_data(self, opponent=None):
