@@ -60,7 +60,7 @@ ACTIONS = {
         "result": None,
     },
     "off_balance": { # off_balance is an automatic action when the combatant's attack is blocked or evaded by the opponent. It is the time that the combatant is vulnerable to attacks.
-        "time": 3,
+        "time": 1,
         "type": "off_balance",
         "stamina_cost": 0,
         "result": None,

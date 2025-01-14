@@ -150,22 +150,29 @@ class CombatSystem:
         if combatant.range < self.distance:
             event['result'] = "missed"
             # print(f"{combatant.name}'s attack missed! Target not in range.")
-            combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+            applied_action_combatant = combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+            self.events.append(applied_action_combatant)
         else:
             if target.action['type'] == "blocking":
                 event['result'] = "blocked"
                 event['target'] = target
                 self.processed_action_log(combatant, event, targeted=True)
 
-                target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-                combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                applied_action_target = target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                self.events.append(applied_action_target)
+                
+                applied_action_combatant = combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                self.events.append(applied_action_combatant)
                 # print(f"{combatant.name}'s attack was blocked by {target.name}. at {self.timer}")
             elif target.action['type'] == "evading":
                 event['result'] = "evaded"
                 self.processed_action_log(combatant, event, targeted=True)
 
-                target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                applied_action_target = target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                self.events.append(applied_action_target)
+                
                 combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                self.events.append(applied_action_combatant)
                 # print(f"{combatant.name}'s attack was evaded by {target.name}.")
             else:
                 damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)
@@ -175,9 +182,11 @@ class CombatSystem:
                 self.processed_action_log(combatant, event, targeted=True)
                 
                 # Upon getting hit, the target is reset
-                target.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-                combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-                
+                applied_action_target = target.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                self.events.append(applied_action_target)
+
+                applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                self.events.append(applied_action_combatant)
                 # print(f"{combatant.name} attacked {target.name} for {damage} damage (rem HP: {target.health}).")
         
     def find_target(self, combatant):
@@ -200,8 +209,9 @@ class CombatSystem:
         # print(f"{combatant.name} moved forward (dist: {self.distance}) at {self.timer}")
 
         # Schedule recovery for the combatant
-        combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-    
+        applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+        self.events.append(applied_action_combatant)
+
     def process_move_backward(self, combatant, event):
         """
         Process a move backward action for a combatant.
@@ -213,8 +223,9 @@ class CombatSystem:
         # print(f"{combatant.name} moved backward (dist: {self.distance}) at {self.timer}")
 
         # Schedule recovery for the combatant
-        combatant.apply_action_state(self.timer, self.event_counter, ACTIONS["reset"])
-        
+        applied_action_combatant = combatant.apply_action_state(self.timer, self.event_counter, ACTIONS["reset"])
+        self.events.append(applied_action_combatant)
+
     def process_recovery(self, combatant, event):
         """
         Process a recovery action for a combatant.
@@ -264,8 +275,8 @@ class CombatSystem:
         # Start the blocking action
         blocking_action = copy.copy(ACTIONS["blocking"])
         blocking_action["time"] = combatant.blocking_ability
-        applied_action = combatant.apply_action_state(blocking_action, self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-        self.events.append(applied_action)
+        applied_action_combatant = combatant.apply_action_state(blocking_action, self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+        self.events.append(applied_action_combatant)
         # print(f"{combatant.name} started blocking at {self.timer} with {combatant.blocking_ability} duration")
     
     def process_blocking(self, combatant, event):
@@ -277,8 +288,9 @@ class CombatSystem:
         # print(f"{combatant.name} stopped blocking at {self.timer}")
 
         # Schedule recovery for the combatant
-        combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-        
+        applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+        self.events.append(applied_action_combatant)
+
     def process_try_evade(self, combatant, event):
         """
         Process an evade action for a combatant.
@@ -291,8 +303,8 @@ class CombatSystem:
         # Start the evading action
         evading_action = copy.copy(ACTIONS["evading"])
         evading_action["time"] = combatant.evading_ability
-        combatant.apply_action_state(evading_action, self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-        
+        applied_action_combatant = combatant.apply_action_state(evading_action, self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+        self.events.append(applied_action_combatant)
         # print(f"{combatant.name} started evading at {self.timer} with {combatant.evading_ability} duration")
     
     def process_evading(self, combatant, event):
@@ -304,8 +316,9 @@ class CombatSystem:
         # print(f"{combatant.name} stopped evading at {self.timer}")
 
         # Schedule recovery for the combatant
-        combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-        
+        applied_actions_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+        self.events.append(applied_actions_combatant)
+
     def process_off_balance(self, combatant, event):
         """
         Process an off-balance action for a combatant.
@@ -315,8 +328,9 @@ class CombatSystem:
         # print(f"{combatant.name} is off-balance at {self.timer}")
 
         # Schedule recovery for the combatant
-        combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-    
+        applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+        self.events.append(applied_action_combatant)
+
     def processed_action_log(self, combatant, event, targeted=False):
         """
         Append a log entry to the battle log.
