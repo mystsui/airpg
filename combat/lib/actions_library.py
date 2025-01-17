@@ -79,3 +79,17 @@ ACTIONS = {
 # 9. recover
 # 10. reset
 # 11. idle
+
+#For consideration:
+# In combat, combatants can be in default or defensive stance.
+# If in default stance, they can perform all actions normally. Including the act of changing stance.
+# Once in defensive stance, the combatant can only perform move, idle, and change stance. But for 
+# all incoming attacks, the combatant has a chance of blocking or evading the attack depending on 
+# their blocking and evading abilities respectively.
+
+#Option:
+#Combatants can assume the blocking stance wherein all incoming attacks while in this stance get blocked.
+#The catch would be that assuming the stance and getting out of it would take a bit of delay.
+#While in this stance, the combatant cannot do any action except than getting out of it.
+#With this system, there would be no evasion mechanic. The evasion would be literally as in using 
+#move_back, crouch, jump at the proper time to avoid an attack.
