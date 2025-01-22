@@ -9,7 +9,7 @@ class Combatant:
         stamina, 
         attack_power, 
         accuracy, 
-        blocking_ability,
+        blocking_power,
         evading_ability,
         mobility, 
         range, 
@@ -25,7 +25,7 @@ class Combatant:
         self.max_health = health # maximum health
         self.attack_power = attack_power
         self.accuracy = accuracy # determines the spread of the attack power (fixed)
-        self.blocking_ability = blocking_ability # blocking ability (fixed)
+        self.blocking_power = blocking_power # blocking ability (fixed)
         self.evading_ability = evading_ability # evading ability (fixed)
         self.mobility = mobility # movement speed (fixed)
         self.range = range # attack range (fixed)
@@ -53,28 +53,30 @@ class Combatant:
         evading = ACTIONS["evading"]
         try_block = ACTIONS["try_block"]
         blocking = ACTIONS["blocking"]
-
+        keep_blocking = ACTIONS["keep_blocking"]
+        stop_blocking = ACTIONS["stop_blocking"]
+        
+        current_action = self.action
         # Initialize action dictionary
         self.action = {}
-        # Basic aggressive combat logic
-        if distance <= self.range and self.stamina >= attack["stamina_cost"]:
-            # If in range and has stamina, always attack
-            self.action["type"] = "attack"
-            self.action["time"] = attack["time"] + timer
-            self.action["target"] = opponent
-        elif distance > self.range and self.stamina >= move_forward["stamina_cost"]:
-            # If out of range, move forward
-            self.action["type"] = "move_forward"
-            self.action["time"] = move_forward["time"] + timer
-        elif self.stamina < attack["stamina_cost"]:
-            # Only recover if can't attack
-            self.action["type"] = "recover"
-            self.action["time"] = recover["time"] + timer
+        
+        # Blocking tests
+        if self.name == "A":
+            if distance > self.range:
+                self.action["type"] = "move_forward"
+                self.action["time"] = move_forward["time"] + timer
+            else:
+                self.action["type"] = "attack"
+                self.action["time"] = attack["time"] + timer
+                self.action["target"] = opponent
         else:
-            # Default to idle
-            self.action["type"] = "idle"
-            self.action["time"] = idle["time"] + timer
-
+            if current_action["type"] == "blocking":
+                self.action["type"] = "keep_blocking"
+                self.action["time"] = keep_blocking["time"] + timer
+            else:
+                self.action["type"] = "try_block"
+                self.action["time"] = try_block["time"] + timer
+                
             
         # Set the combatant for the action
         self.action["combatant"] = self
@@ -98,6 +100,7 @@ class Combatant:
         """
         Prepare the decision log for the combatant.
         """
+        
         log = {
             "timestamp": timer,
             "event_number": event_counter + 1,

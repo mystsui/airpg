@@ -3,16 +3,16 @@ from combat.combatant import Combatant
 import time
 
 # Initialize battle
-battle = CombatSystem(duration=10000)  # 10 seconds
+battle = CombatSystem(duration=1000, distance=10)  # 10 seconds
 
 # Create combatants
 combatant_a = Combatant(name="A", 
                         health=100, 
                         stamina=150, 
-                        attack_power=9, 
+                        attack_power=15, 
                         accuracy=70,
-                        blocking_ability=2,
-                        evading_ability=1,
+                        blocking_power=5,
+                        evading_ability=10,
                         mobility=50, 
                         range=50, 
                         stamina_recovery=15)
@@ -20,10 +20,10 @@ combatant_a = Combatant(name="A",
 combatant_b = Combatant(name="B", 
                         health=81, 
                         stamina=100, 
-                        attack_power=6, 
+                        attack_power=11, 
                         accuracy=85,
-                        blocking_ability=1,
-                        evading_ability=2, 
+                        blocking_power=5,
+                        evading_ability=20, 
                         mobility=60, 
                         range=110, 
                         stamina_recovery=20)

@@ -5,7 +5,7 @@ import sys
 from combat.lib.actions_library import ACTIONS
 
 class CombatSystem:
-    def __init__(self, duration):
+    def __init__(self, duration, distance):
         """
         Initialize the battle state.
         
@@ -14,7 +14,7 @@ class CombatSystem:
         self.timer = 0  # Current time
         self.duration = duration  # Total duration of the battle
         self.combatants = []  # List of combatants
-        self.distance = 200  # Distance between the two teams
+        self.distance = distance  # Distance between the two teams
         self.events = []  # Log of processed events (snapshots)
         self.next_event = None  # Reference to the next event to process
         self.event_counter = 0  # Initialize counter
@@ -53,8 +53,8 @@ class CombatSystem:
         action_priority = {
             'off_balance': 1, 'idle': 2, 'reset': 3,
             'move_forward': 4, 'move_backward': 4, 'attack': 5,
-            'evading': 6, 'blocking': 7, 'try_evade': 8,
-            'try_block': 9, 'recover': 10
+            'evading': 6, 'blocking': 7, 'keep_blocking': 8, 'try_evade': 9,
+            'try_block': 10, 'recover': 11
         }
 
         # When actions occur at same time, prioritize the 'completed' actions while using priority order to break ties
@@ -130,6 +130,9 @@ class CombatSystem:
         elif action_type == "blocking":
             self.process_blocking(combatant, event)
             
+        elif action_type == "keep_blocking":
+            self.process_keep_blocking(combatant, event)
+            
         elif action_type == "evading":
             self.process_evading(combatant, event)
             
@@ -156,13 +159,28 @@ class CombatSystem:
             if target.action['type'] == "blocking":
                 event['result'] = "blocked"
                 event['target'] = target
-                self.processed_action_log(combatant, event, targeted=True)
-
-                applied_action_target = target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-                self.events.append(applied_action_target)
+                damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)              
+                event['damage'] = damage
                 
-                applied_action_combatant = combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
-                self.events.append(applied_action_combatant)
+                if(damage <= target.blocking_power):
+                    applied_action_combatant = combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                    self.events.append(applied_action_combatant)
+                    
+                    applied_action_target = target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                    self.events.append(applied_action_target)
+                
+                    event['result'] = "blocked"
+                else:
+                    applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                    self.events.append(applied_action_combatant)
+                    
+                    applied_action_target = target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+                    self.events.append(applied_action_target)
+                    
+                    event['result'] = "breached"
+                    
+                target.blocking_power = max(0, target.blocking_power - damage)
+                self.processed_action_log(combatant, event, targeted=True)
                 # print(f"{combatant.name}'s attack was blocked by {target.name}. at {self.timer}")
             elif target.action['type'] == "evading":
                 event['result'] = "evaded"
@@ -274,22 +292,35 @@ class CombatSystem:
 
         # Start the blocking action
         blocking_action = copy.copy(ACTIONS["blocking"])
-        blocking_action["time"] = combatant.blocking_ability
         applied_action_combatant = combatant.apply_action_state(blocking_action, self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
         self.events.append(applied_action_combatant)
         # print(f"{combatant.name} started blocking at {self.timer} with {combatant.blocking_ability} duration")
     
     def process_blocking(self, combatant, event):
         """
-        Process a blocking action for a combatant.
+        Stop a blocking action for a combatant.
         """
-        event['status'] = "completed"
+        event['status'] = "pending"
         self.processed_action_log(combatant, event, targeted=False)
         # print(f"{combatant.name} stopped blocking at {self.timer}")
 
-        # Schedule recovery for the combatant
-        applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+        # Schedule the next action for the combatant
+        decision = combatant.decide_action(self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
+        self.events.append(decision)
+        
+    def process_keep_blocking(self, combatant, event):
+        """
+        Continue the blocking action.
+        """
+        event['status'] = "completed"
+        self.processed_action_log(combatant, event, targeted=False)
+        # print(f"{combatant.name} reset at {self.timer}")
+
+        # Restart the blocking action
+        blocking_action = copy.copy(ACTIONS["blocking"])
+        applied_action_combatant = combatant.apply_action_state(blocking_action, self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
         self.events.append(applied_action_combatant)
+        
 
     def process_try_evade(self, combatant, event):
         """
@@ -302,7 +333,6 @@ class CombatSystem:
 
         # Start the evading action
         evading_action = copy.copy(ACTIONS["evading"])
-        evading_action["time"] = combatant.evading_ability
         applied_action_combatant = combatant.apply_action_state(evading_action, self.timer, self.event_counter, self.distance, copy.copy(self.find_target(combatant)))
         self.events.append(applied_action_combatant)
         # print(f"{combatant.name} started evading at {self.timer} with {combatant.evading_ability} duration")
@@ -446,6 +476,8 @@ class CombatSystem:
                 message += f"attacked {target['name']} for {damage} damage (remaining HP: {target['health']})."
             elif result == "blocked":
                 message += f"attacked {target['name']}, but the attack was blocked."
+            elif result == "breached":
+                message += f"attacked {target['name']}, and breached his defenses (remaining HP: {target['health']})."
             elif result == "evaded":
                 message += f"attacked {target['name']}, but the attack was evaded."
             else:
@@ -549,3 +581,4 @@ class CombatSystem:
 
         active_combatants = [c for c in self.combatants if not c.is_defeated()]
         return len(active_combatants) <= 1
+    
