@@ -1,0 +1,139 @@
+# The game is a fresh and modern RPG primarily focused on AI battle simulation using character decision trees and enemy data.
+# Characters progress through PVE, PVP, Enhancements (Gear, Skills) and Upgrades.
+# Battles between characters/enemies are simulated using a deathmatch turn-based gameplay in which character's behavior and battle decision making are governed by a decision tree depending upon the character's equipped combat chip.
+# Battle experience data per kind of enemy or a certain other player is acquired through battle. At the end of the battle, the logged data can be encoded into an item containing the enemy's estimated stats and skills used in battle.
+# Leveling up is done by consuming attribute upgrades.
+# Loot can be acquired from enemies.
+# Enhancements can be crafted (non-standard, traded in the black market) from loots or bought from NPCs (standard gears).
+# An in-game currency will be established.
+# Battles are only 1v1.
+#
+# Characters are ownable, customizable and playable.
+# They have the following attributes:
+#   Basic Attributes:
+#       Power (PWR) - Reflects physical power or force.
+#       Endurance (END) - Reflects stamina and ability to withstand strain.
+#       Reflexes (RFX) - Represents reaction speed and physical nimbleness.
+#       Precision (PRS) - Emphasizes accuracy and control.
+#       Synapse (SYN) - Highlights neural speed and intellectual connections.
+#       Entropy (ENT) - Reflects chaotic, probabilistic elements.
+#   Battle Stats (Derived from the basic attributes):
+#       Primarily from PWR:
+#           Attack Power (AttackPow) - Offensive strength. (Drops to 75% when CoreSys is breached)
+#           Payload Breach (Breach) - The chance of breaking the opponent's target functional integrity altogether (core, mobility and neural).
+#       Primarily from END:
+#           Core (Core) - Character's life force. (Exposed to direct damage from an attack/script targeting a component with 0 integrity)
+#           Reconstitution (Recon) - Rate of recovering core.
+#       Primarily from RFX:
+#           Action Capacity (ActionCap) - Ability to perform actions and movement.
+#           Action Frequency (ActionFreq) - Determines how often actions can be performed.
+#           Avoidance Factor (Avoid) - Agility and reaction time. (Drops to 75% when CoreSys is breached)
+#       Primarily from PRS:
+#           Hit Ratio (Hit) - Accuracy of landing attacks.
+#           Skill Reset Rate (SkillReset) - Determines how often skills can be performed.
+#           Mobility (Mobility) - The ability to move from one position to another. (Drops to 75% when MobSys is breached)
+#       Primarily from SYN:
+#           Neural Charge (NeuCharge) - Ability to execute skills.
+#           Effect Output (EffectOut) - Enhanced skill impact. (Drops to 75% when NeuSys is breached)
+#           Neuro Recovery (NeuRecov) - Rate of recovering neural charge.
+#       Primarily from ENT:
+#           Breakpoint Probability (BreakProb) - The chance of dealing a critical blow.
+#           Malfunction Induction Rate (MalfuncRate) - The chance of causing status effects.
+#           Resource Entanglement (ResoEntropy) - Suggests leveraging chaotic principles to find items.
+#       Depending upon the Weapon Equipped:
+#           Attack Range (Range) - The ability to perform attacks from a distance.
+#       Depending upon the Gear Equipped:
+#           Core System Integrity (CoreSys) - Overall structural stability and resilience. (Enhanced by Body, Arms and Hands Gear)
+#           Mobility System Integrity (MobSys) - The stability and coordination of lower body to move from one position to another. (Enhanced by Legs Gear)
+#           Neural System Integrity (NeuSys) - Functionality of neural implants. (Enhanced by Neural System and Face Gear)
+
+
+#   Character Classes (Each class offers different battle stat bonuses/penalties):
+#       Unit (Tank)
+#       Trooper (Fighter)
+#       Shadowrunner (Rogue)
+#       Datapunk (Mage)
+#       Tracer (Archer)
+#   Character Factions (Does not affect character stats/attributes but heavily influences cooperative gameplay due to synergy, location and conflicts)
+#       Hyper-elite (Corporate overlords)
+#       Anarchist hackers (Rebels)
+#       Shadows (Black market people)
+#   Skills:
+#       Active Skills - executable protocols that can be equipped into a character's skill slot, allowing them to perform specific, resource-driven abilities.
+#       They have the following constraints/attributes:
+#           Can be used when equipped in the character's skill slot;
+#           Generally costs NeuCharge;
+#           Has a cooldown;
+#           Can apply status effects;
+#           Three active skills can be equipped at a time.
+#       Passive Skills - always-active enhancements embedded in a character's core systems, providing continuous boosts or effects without requiring direct activation.
+#           Only one passive skill can be equipped at a time.
+#   Enhancements:
+#       Rigs are gears that a character can equip to boost/enhance its battle stats. They could be the attached to the following:
+#           Neural System (Boosts SYN based Battle Stats)
+#           Arms (Boosts PWR based Battle Stats)
+#           Body (Boosts END based Battle Stats)
+#           Hands (Boosts PRS based Battle Stats)
+#           Legs (Boosts RFX based Battle Stats)
+#           Face (Boosts ENT based Batle Stats)
+#   Battle System:
+#       The performance of a character in a battle simulation is heavily governed by the Combat Chip attached to it.
+#       A Combat Chip (CC) is a specialized AI-driven module that, when slotted into a character's system, defines their decision-making algorithms and tactical behavior during battle. Each chip is programmed with a unique set of combat priorities, strategies, and response protocols, allowing characters to adapt dynamically to different combat scenarios based on the installed chip's design.
+#   Core Upgrade:
+#       A high-level systems enhancement that modifies a character's core functionality, granting bonuses that synergizes with the character class and unique perks. These upgrades act as modular enhancements, redefining the character's role and capabilities without altering their primary combat style, and can be swapped at will for strategic adaptability.
+#       It can be unlocked at higher levels by equipping a core upgrade chip.
+#   Battle Experience Data (BED):
+#       After battling with a certain enemy type or another player, the character can encode the logged data into an item (BED). It contains the estimated battle stats of the enemy fought. Fully transferrable.
+#   Status Effects:
+#       Temporary conditions that affect a character's performance in battle. They can be positive or negative and can be applied by skills or some attacks.
+#       They can be:
+#           Buffs - Positive effects that enhance a character's performance.
+#               Examples:
+#                   Overdrive - Increased AttackPow.
+#                   Pierce Protocol - Increased Breach.
+#                   Core Stabilizer - Increased Core.
+#                   Shield Matrix - Increased DmgRes.
+#                   Regen Loop - Increased CoRecon.
+#                   Overclock - Increased ActionCap.
+#                   Optic Sync - Increased Hit.
+#                   Cooldown Reducer - Increased SkillReset.
+#                   Traction Boost - Increased Mobility.
+#                   Synaptic Surge - Increased NeuCharge.
+#                   Pulse Amplification - Increased EffectOut.
+#                   Cognitive Reboot - Increased NeuRecov.
+#                   Breakforce Amplifier - Increased BreakProb.
+#                   Glitch Inducer - Increased MalfuncRate.
+#                   Entropy Sync - Increased ResoEntropy.
+#
+#           Debuffs - Negative effects that impair a character's performance.
+#               Examples:
+#                   Overload - Decreased AttackPow.
+#                   Penetration Lockdown - Decreased Breach.
+#                   Integrity Leak - Decreased Core.
+#                   Armor Disruption - Decreased DmgRes.
+#                   System Strain - Decreased CoRecon.
+#                   Reaction Lag - Decreased ActionCap.
+#                   Temporal Drag - Decreased AF.
+#                   Movement Signal Leak - Decreased AVF.
+#                   Aim Disruption - Decreased Hit.
+#                   Reset Interference - Decreased SkillReset.
+#                   Traction Loss - Decreased Mobility.
+#                   Energy Leak - Decreased NeuCharge.
+#                   Impact Suppression - Decreased EffectOut.
+#                   Charge Blocker - Decreased NeuRecov.
+#                   Breakpoint Jam - Decreased BreakProb.
+#                   Glitch Lock - Decreased MalfuncRate.
+#                   Drop Disruption - Decreased ResoEntropy.
+#           Viral Attack - Damage over Time effects that deal damage over a period.
+#           Nanobot Repair - Heal over Time effects that recover health over a period.
+#           EMP Shock - Prevents a character from performing actions.
+#           Skill Lockdown - Prevents a character from using skills.
+#           Sensor Malfunction - Reduces a character's accuracy.
+#           Hydraulic Leak - Deals damage over time and reduces healing efficiency.
+#           Neurotoxin - Deals damage over time.
+#           Overheat - Deals damage over time.
+#           Cryo Lock - Prevents a character from performing actions.
+#           Forced Shutdown - Prevents a character from performing actions.
+#           Panic Protocol - Forces a character to flee.
+#           Neural Hijack - Randomizes a character's actions.
+#           Aggro Hack - Forces a character to attack the taunter.

@@ -96,6 +96,25 @@ class Combatant:
         log = self.decision_applied_log(timer, event_counter, distance, opponent)
         return log
     
+    def apply_action_state(self, _action, timer, event_counter, distance, opponent):
+        """
+        Update the action status after each event.
+        """
+        _action = copy.copy(_action)
+        self.action = {
+            "time": _action["time"],
+            "type": _action["type"],
+            "stamina_cost": _action["stamina_cost"],
+        }
+        self.action["time"] += timer
+        self.action["combatant"] = self
+        self.action["status"] = "pending"
+        self.action["target"] = None
+
+        log = self.decision_applied_log(timer, event_counter, distance, opponent)
+        return log
+        # print(f"!!!{self.name} decided to {self.action['type']} at time {self.action['time']}")
+    
     def decision_applied_log(self, timer, event_counter, distance, opponent):
         """
         Prepare the decision log for the combatant.
@@ -123,25 +142,6 @@ class Combatant:
             # "details": kwargs  # Additional information like damage, distance, etc.
         }
         return log
-
-    def apply_action_state(self, _action, timer, event_counter, distance, opponent):
-        """
-        Update the action status after each event.
-        """
-        _action = copy.copy(_action)
-        self.action = {
-            "time": _action["time"],
-            "type": _action["type"],
-            "stamina_cost": _action["stamina_cost"],
-        }
-        self.action["time"] += timer
-        self.action["combatant"] = self
-        self.action["status"] = "pending"
-        self.action["target"] = None
-
-        log = self.decision_applied_log(timer, event_counter, distance, opponent)
-        return log
-        # print(f"!!!{self.name} decided to {self.action['type']} at time {self.action['time']}")
 
     def get_opponent_data(self, opponent=None):
         """

@@ -179,7 +179,9 @@ class CombatSystem:
                     
                     event['result'] = "breached"
                     
+                breach_damage = damage - target.blocking_power
                 target.blocking_power = max(0, target.blocking_power - damage)
+                target.health = max(0, target.health - breach_damage)
                 self.processed_action_log(combatant, event, targeted=True)
                 # print(f"{combatant.name}'s attack was blocked by {target.name}. at {self.timer}")
             elif target.action['type'] == "evading":
@@ -501,6 +503,9 @@ class CombatSystem:
         elif action == "blocking":
             message += f"stopped blocking."
 
+        elif action == "keep_blocking":
+            message += f"kept blocking."
+
         elif action == "evading":
             message += f"stopped evading."
 
@@ -548,13 +553,16 @@ class CombatSystem:
             message += f"is attempting to recover stamina which will be completed in {timeend}ms."
 
         elif action == "try_block":
-            message += f"started a blocking stance which will block attacks in {timeend}ms."
+            message += f"decided to block attacks starting {timeend}ms."
 
         elif action == "try_evade":
             message += f"started an evasive stance which will evade attacks in {timeend}ms."
 
-        # elif action == "blocking":
-        #     message += f"stopped blocking."
+        elif action == "blocking":
+            message += f"is blocking."
+
+        elif action == "keep_blocking":
+            message += f"decided to keep blocking."
 
         # elif action == "evading":
         #     message += f"stopped evading."
