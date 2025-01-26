@@ -77,6 +77,12 @@ ACTIONS = {
         "stamina_cost": 0,
         "result": None,
     },
+    "turn_around": { # turn can be chosen to turn towards/from the opponent. the time for the turn is dependent upon the combatant's speed.
+        "time": 10,
+        "type": "turn_around",
+        "stamina_cost": 1,
+        "result": None,
+    },
 }
 
 #For actions happening at the same time (ms), the order of execution is as follows:

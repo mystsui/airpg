@@ -9,7 +9,7 @@ battle = CombatSystem(duration=1000, distance=10)  # 10 seconds
 combatant_a = Combatant(name="A", 
                         health=100, #primarily person-based (Endurance)
                         stamina=150, #primarily person-based (Reflexes)
-                        energy=0, #primarily person-based (Synapse)
+                        # energy=0, #primarily person-based (Synapse)
                         accuracy=70, #primarily person-based (Precision)
                         #breakpoint_probability=0, #primarily person-based (Entropy)
                         stamina_recovery=15, #person-based (Reflexes)
@@ -24,7 +24,11 @@ combatant_a = Combatant(name="A",
                         blocking_power=5, #gear-based (secondary endurance)
                         evading_ability=10, #(not needed currently since evade times are uniform)
                         mobility=50, #primarily gear-based (countered by weight)
-                        range=50) #gear-based
+                        range_a=0,
+                        range_b=50,
+                        position="left",
+                        facing="right"
+                        ) #gear-based
 
 combatant_b = Combatant(name="B", 
                         health=81, 
@@ -34,7 +38,10 @@ combatant_b = Combatant(name="B",
                         blocking_power=100,
                         evading_ability=20, 
                         mobility=60, 
-                        range=110, 
+                        range_a=30,
+                        range_b=150, 
+                        position="right",
+                        facing="left",
                         stamina_recovery=20)
 
 # Add combatants to the battle
