@@ -58,9 +58,11 @@ class CombatSystem:
             print("No valid combatant actions found.")
             return
         
-        # print(f"Active combatants: Challenger: {self.combatants[0].action} Defender: {self.combatants[1].action}")
-
         # Find the action with the earliest time
+
+        # Define status priority (completed first)
+        status_priority = {'completed': 0, 'pending': 1}
+
         # Sort actions happening at the same time based on priority
         action_priority = {
             'off_balance': 1, 'idle': 2, 'reset': 3,
@@ -69,25 +71,17 @@ class CombatSystem:
             'try_block': 12, 'recover': 13
         }
 
-        # When actions occur at same time, prioritize the 'completed' actions while using priority order to break ties
-        # Sort actions: completed actions first, then pending actions
-        completed_actions = [a for a in combatants_actions if a['status'] == 'completed']
-        pending_actions = [a for a in combatants_actions if a['status'] != 'completed']
-        
-        # Sort each group by time and priority
-        completed_actions.sort(key=lambda x: (x['time'], action_priority[x['type']]))
-        pending_actions.sort(key=lambda x: (x['time'], action_priority[x['type']]))
-        
-        # Combine the sorted lists with completed actions first
-        combatants_actions = completed_actions + pending_actions
+        # Sort all actions at once using status as primary key
+        combatants_actions.sort(key=lambda x: (
+            x['time'],                           # First by time
+            status_priority[x['status']],        # Then by status (completed before pending)
+            action_priority[x['type']]           # Finally by action type priority
+        ))
+
+        self.next_event = combatants_actions[0] if combatants_actions else None
         
         # Set next event to first action after sorting
         self.next_event = combatants_actions[0] if combatants_actions else None
-
-        # self.next_event = min(combatants_actions, key=lambda action: action['time'])
-        
-
-        print(self.next_event)
         
     def update(self):
         """
@@ -101,9 +95,6 @@ class CombatSystem:
 
         # Process the event
         self.process_event(self.next_event)
-
-        # Log the event
-        # self.events.append(copy.deepcopy(self.next_event))
 
         # Determine the next event
         self.determine_next_event()
@@ -167,7 +158,6 @@ class CombatSystem:
         combatant.stamina -= ACTIONS["attack"]["stamina_cost"]
         if combatant.range < self.distance:
             event['result'] = "missed"
-            # print(f"{combatant.name}'s attack missed! Target not in range.")
             applied_action_combatant = combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance)
             self.events.append(applied_action_combatant)
         else:
@@ -198,7 +188,6 @@ class CombatSystem:
                 target.blocking_power = max(0, target.blocking_power - damage)
                 target.health = max(0, target.health - breach_damage)
                 self.processed_action_log(combatant, event, targeted=True)
-                # print(f"{combatant.name}'s attack was blocked by {target.name}. at {self.timer}")
             elif target.action['type'] == "evading":
                 event['result'] = "evaded"
                 self.processed_action_log(combatant, event, targeted=True)
@@ -208,7 +197,6 @@ class CombatSystem:
                 
                 combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance)
                 self.events.append(applied_action_combatant)
-                # print(f"{combatant.name}'s attack was evaded by {target.name}.")
             else:
                 damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)
                 target.health = max(0, target.health - damage)
@@ -222,7 +210,6 @@ class CombatSystem:
 
                 applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
                 self.events.append(applied_action_combatant)
-                # print(f"{combatant.name} attacked {target.name} for {damage} damage (rem HP: {target.health}).")
         
     def find_target(self, combatant):
         """
@@ -241,8 +228,7 @@ class CombatSystem:
         combatant.stamina -= ACTIONS["move_forward"]["stamina_cost"]
         self.distance = max(0, self.distance - combatant.mobility)
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} moved forward (dist: {self.distance}) at {self.timer}")
-
+    
         # Schedule recovery for the combatant
         applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
         self.events.append(applied_action_combatant)
@@ -255,7 +241,6 @@ class CombatSystem:
         combatant.stamina -= ACTIONS["move_backward"]["stamina_cost"]
         self.distance = min(600, self.distance + combatant.mobility)
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} moved backward (dist: {self.distance}) at {self.timer}")
 
         # Schedule recovery for the combatant
         applied_action_combatant = combatant.apply_action_state( ACTIONS["reset"], self.timer, self.event_counter, self.distance)
@@ -268,7 +253,6 @@ class CombatSystem:
         event['status'] = "completed"
         combatant.stamina = min(combatant.max_stamina, combatant.stamina + combatant.stamina_recovery)
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} recovered stamina ({combatant.stamina}) at {self.timer}")
 
         # Schedule the next action for the combatant
         decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
@@ -282,7 +266,6 @@ class CombatSystem:
         """
         event['status'] = "completed"
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} idled at {self.timer}")
 
         # Schedule the next action for the combatant
         decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
@@ -294,7 +277,6 @@ class CombatSystem:
         """
         event['status'] = "completed"
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} reset at {self.timer}")
 
         # Schedule the next action for the combatant
         decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
@@ -307,7 +289,6 @@ class CombatSystem:
         event['status'] = "completed"
         combatant.stamina -= ACTIONS["try_block"]["stamina_cost"]
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} tried to block at {self.timer}")
 
         # Start the blocking action
         blocking_action = copy.copy(ACTIONS["blocking"])
@@ -321,8 +302,7 @@ class CombatSystem:
         """
         event['status'] = "pending"
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} stopped blocking at {self.timer}")
-
+    
         # Schedule the next action for the combatant
         decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
         self.events.append(decision)
@@ -333,8 +313,7 @@ class CombatSystem:
         """
         event['status'] = "completed"
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} reset at {self.timer}")
-
+    
         # Restart the blocking action
         blocking_action = copy.copy(ACTIONS["blocking"])
         applied_action_combatant = combatant.apply_action_state(blocking_action, self.timer, self.event_counter, self.distance)
@@ -348,8 +327,7 @@ class CombatSystem:
         event['status'] = "completed"
         combatant.stamina -= ACTIONS["try_evade"]["stamina_cost"]
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} tried to evade at {self.timer}")
-
+        
         # Start the evading action
         evading_action = copy.copy(ACTIONS["evading"])
         applied_action_combatant = combatant.apply_action_state(evading_action, self.timer, self.event_counter, self.distance)
@@ -362,8 +340,7 @@ class CombatSystem:
         """
         event['status'] = "completed"
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} stopped evading at {self.timer}")
-
+       
         # Schedule recovery for the combatant
         applied_actions_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
         self.events.append(applied_actions_combatant)
@@ -374,7 +351,6 @@ class CombatSystem:
         """
         event['status'] = "completed"
         self.processed_action_log(combatant, event, targeted=False)
-        # print(f"{combatant.name} is off-balance at {self.timer}")
 
         # Schedule recovery for the combatant
         applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
@@ -436,9 +412,6 @@ class CombatSystem:
         """
         if not combatant:
             return
-        # if action == "attack":
-        #     print(f"{combatant.name} attacked {target.name} for {damage} damage.")
-        #     # sys.exit(1)
             
         log = {
             "timestamp": timestamp,
@@ -463,26 +436,50 @@ class CombatSystem:
         }
         self.events.append(log)
         
+    # def replay_log(self):
+    #     """
+    #     Replay the battle log, presenting each action in a human-readable format.
+    #     """
+    #     print("\n--- Battle Replay ---\n")
+    #     # print(self.events)
+    #     for log in self.events:
+    #         print(f"{log['event_number']}: {log["action"]} at {log["timestamp"]} is {log["status"]}")
+    #     for log in self.events:
+    #         # Build the replay message
+    #         if log["status"] == "completed":
+    #             message = self.message_for_completed_event(log)
+                
+    #         else:
+    #             message = self.message_for_pending_event(log)
+                
+                
+    #         # Print the formatted message
+    #         print(message)
+
+    #     print("\n--- Replay Complete ---\n")
+
     def replay_log(self):
         """
         Replay the battle log, presenting each action in a human-readable format.
         """
         print("\n--- Battle Replay ---\n")
-        # print(self.events)
-        for log in self.events:
-            print(f"{log['event_number']}: {log["action"]} at {log["timestamp"]} is {log["status"]}")
-        for log in self.events:
-            # Build the replay message
-            if log["status"] == "completed":
-                message = self.message_for_completed_event(log)
+        
+        # Sort events
+        sorted_events = sorted(self.events, key=lambda x: (
+            x['timestamp'],
+            1 if x['status'] == 'pending' else 0,
+            x['event_number']
+        ))
+        
+        # Print events in sorted order
+        for log in sorted_events:
+            # print(f"{log['event_number']}: {log['action']} at {log['timestamp']} is {log['status']}")
+            message = (self.message_for_completed_event(log) 
+                    if log["status"] == "completed" 
+                    else self.message_for_pending_event(log))
+            if message:
+                print(message)
                 
-            else:
-                message = self.message_for_pending_event(log)
-                
-                
-            # Print the formatted message
-            print(message)
-
         print("\n--- Replay Complete ---\n")
 
     def message_for_completed_event(self, log):
@@ -533,6 +530,9 @@ class CombatSystem:
 
         elif action == "evading":
             message += f"stopped evading."
+
+        elif action == "turn_around":
+            message += f"turned around."
 
         elif action == "idle":
             message += f"took no action ({combatant["stamina"]} left)."
@@ -592,8 +592,11 @@ class CombatSystem:
         # elif action == "evading":
         #     message += f"stopped evading."
 
+        elif action == "turn_around":
+            message += f"is going to turn around."
+
         elif action == "idle":
-            message += f"is undecided."
+            message += f"is idling."
 
         elif action == "reset":
             message += f"is resetting his position and balance."
