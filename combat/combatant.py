@@ -12,7 +12,9 @@ class Combatant:
         blocking_power,
         evading_ability,
         mobility, 
-        range, 
+        range,
+        perception,
+        stealth, 
         stamina_recovery,
         opponent=None):
         """
@@ -29,11 +31,13 @@ class Combatant:
         self.evading_ability = evading_ability # evading ability (fixed)
         self.mobility = mobility # movement speed (fixed)
         self.range = range # attack range (fixed)
+        self.perception = perception
+        self.stealth = stealth
         self.stamina_recovery = stamina_recovery # stamina recovery rate
         self.action = {"type": "idle", "combatant": self, "time": ACTIONS["idle"]["time"], "status": "pending", "target": None}
         self.opponent = opponent
 
-    def decide_action(self, timer, event_counter, distance, opponent):
+    def decide_action(self, timer, event_counter, distance):
         """
         Decide the next action based on the current state.
         This should be a decision tree or a policy network. For now, we will use a simple rule-based system.
@@ -68,7 +72,7 @@ class Combatant:
             else:
                 self.action["type"] = "attack"
                 self.action["time"] = attack["time"] + timer
-                self.action["target"] = opponent
+                self.action["target"] = self.opponent
         else:
             if current_action["type"] == "blocking":
                 self.action["type"] = "keep_blocking"
@@ -89,14 +93,14 @@ class Combatant:
         self.action["status"] = "pending"
 
         # Set the target for the action
-        self.action["target"] = opponent
+        self.action["target"] = self.opponent
         
         # print(f"{self.name} decided to {self.action['type']} effective at time {self.action['time']} while having {self.stamina} stamina at {timer}")
 
-        log = self.decision_applied_log(timer, event_counter, distance, opponent)
+        log = self.decision_applied_log(timer, event_counter, distance)
         return log
     
-    def apply_action_state(self, _action, timer, event_counter, distance, opponent):
+    def apply_action_state(self, _action, timer, event_counter, distance):
         """
         Update the action status after each event.
         """
@@ -111,15 +115,15 @@ class Combatant:
         self.action["status"] = "pending"
         self.action["target"] = None
 
-        log = self.decision_applied_log(timer, event_counter, distance, opponent)
+        log = self.decision_applied_log(timer, event_counter, distance)
         return log
         # print(f"!!!{self.name} decided to {self.action['type']} at time {self.action['time']}")
     
-    def decision_applied_log(self, timer, event_counter, distance, opponent):
+    def decision_applied_log(self, timer, event_counter, distance):
         """
         Prepare the decision log for the combatant.
         """
-        
+
         log = {
             "timestamp": timer,
             "event_number": event_counter + 1,
@@ -133,17 +137,23 @@ class Combatant:
             "distance": distance,
             "status": "pending",
             "target": {
-                "name": opponent.name if opponent else None,
-                "health": opponent.health if opponent else None,
-                "stamina": opponent.stamina if opponent else None
+                "name": self.opponent.name if self.opponent else None,
+                "health": self.opponent.health if self.opponent else None,
+                "stamina": self.opponent.stamina if self.opponent else None
             },
             "result": None,
             "damage": None,
             # "details": kwargs  # Additional information like damage, distance, etc.
         }
         return log
+    
+    def update_opponent_action(self, action):
+        """
+        Update on the combatant's perception the opponent's current action.
+        """
+        self.opponent["action"] = action
 
-    def get_opponent_data(self, opponent=None):
+    def update_opponent_data(self, stat, value):
         """
         Get the opponent's data.
         """
