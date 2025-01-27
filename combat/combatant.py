@@ -71,26 +71,29 @@ class Combatant:
         self.action = {}
         
         # Blocking tests
-        if self.name == "A":
-            if self.is_facing_opponent(self.opponent):
-                if self.is_within_range(distance):
-                    self.action["type"] = "attack"
-                    self.action["time"] = attack["time"] + timer
-                    self.action["target"] = self.opponent
-                else:
-                    self.action["type"] = "move_forward"
-                    self.action["time"] = move_forward["time"] + timer
-            else:
-                self.action["type"] = "turn_around"
-                self.action["time"] = turn_around["time"] + timer
+        # if self.name == "A":
+        #     if self.is_facing_opponent(self.opponent):
+        #         if self.is_within_range(distance):
+        #             self.action["type"] = "attack"
+        #             self.action["time"] = attack["time"] + timer
+        #             self.action["target"] = self.opponent
+        #         else:
+        #             self.action["type"] = "move_forward"
+        #             self.action["time"] = move_forward["time"] + timer
+        #     else:
+        #         self.action["type"] = "turn_around"
+        #         self.action["time"] = turn_around["time"] + timer
 
-        else:
-            if current_action["type"] == "blocking":
-                self.action["type"] = "keep_blocking"
-                self.action["time"] = keep_blocking["time"] + timer
-            else:
-                self.action["type"] = "try_block"
-                self.action["time"] = try_block["time"] + timer
+        # else:
+        #     if current_action["type"] == "blocking":
+        #         self.action["type"] = "keep_blocking"
+        #         self.action["time"] = keep_blocking["time"] + timer
+        #     else:
+        #         self.action["type"] = "try_block"
+        #         self.action["time"] = try_block["time"] + timer
+
+        self.action["type"] = "turn_around"
+        self.action["time"] = turn_around["time"] + timer
                 
             
         # Set the combatant for the action

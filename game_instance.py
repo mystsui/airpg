@@ -74,7 +74,10 @@ assumed_opponent_stats = Combatant(
     blocking_power=5, #gear-based (secondary endurance)
     evading_ability=10, #(not needed currently since evade times are uniform)
     mobility=50, #primarily gear-based (countered by weight)
-    range=50
+    range_a=0,
+    range_b=100,
+    position="left",
+    facing="right"
 )
 
 battle.get_opponent_data(combatant_a, assumed_opponent_stats)
@@ -90,7 +93,7 @@ battle.determine_next_event()
 # Simulate the battle
 while not battle.is_battle_over():
     battle.update()
-    time.sleep(0)  # 100ms delay between ticks
+    time.sleep(1)  # 100ms delay between ticks
 
 battle.replay_log()
 print("Battle Over!")

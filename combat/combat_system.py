@@ -37,7 +37,7 @@ class CombatSystem:
             
         # Set the assumed opponent stats for this combatant
         combatant.opponent = assumed_opponent
-        print(assumed_opponent)
+        # print(assumed_opponent)
 
 
     def determine_next_event(self):
@@ -64,9 +64,9 @@ class CombatSystem:
         # Sort actions happening at the same time based on priority
         action_priority = {
             'off_balance': 1, 'idle': 2, 'reset': 3,
-            'move_forward': 4, 'move_backward': 4, 'attack': 5,
-            'evading': 6, 'blocking': 7, 'keep_blocking': 8, 'try_evade': 9,
-            'try_block': 10, 'recover': 11
+            'move_forward': 4, 'move_backward': 5, 'attack': 6, 'turn_around': 7,
+            'evading': 8, 'blocking': 9, 'keep_blocking': 10, 'try_evade': 11,
+            'try_block': 12, 'recover': 13
         }
 
         # When actions occur at same time, prioritize the 'completed' actions while using priority order to break ties
@@ -150,6 +150,9 @@ class CombatSystem:
             
         elif action_type == "off_balance":
             self.process_off_balance(combatant, event)
+
+        elif action_type == "turn_around":
+            self.process_turn_around(combatant, event)
             
         else:
             print(f"Unknown action type: {action_type}")
@@ -375,6 +378,14 @@ class CombatSystem:
 
         # Schedule recovery for the combatant
         applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
+        self.events.append(applied_action_combatant)
+
+    def process_turn_around(self, combatant, event):
+        event['status'] = "completed"
+        self.processed_action_log(combatant, event, targeted=False)
+
+        # Schedule idle for the combatant
+        applied_action_combatant = combatant.apply_action_state(ACTIONS["idle"], self.timer, self.event_counter, self.distance)
         self.events.append(applied_action_combatant)
 
     def processed_action_log(self, combatant, event, targeted=False):
