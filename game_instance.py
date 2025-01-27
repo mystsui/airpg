@@ -30,7 +30,7 @@ combatant_a = Combatant(name="A",
                         range_b=50,
                         position="left",
                         facing="right"
-                        ) #gear-based
+                        )
 
 combatant_b = Combatant(name="B", 
                         health=81, 
