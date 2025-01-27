@@ -12,10 +12,13 @@ class Combatant:
         blocking_power,
         evading_ability,
         mobility, 
-        range,
+        range_a,
+        range_b, 
+        stamina_recovery,
+        position,
+        facing,
         perception,
         stealth, 
-        stamina_recovery,
         opponent=None):
         """
         Initialize a combatant.
@@ -30,11 +33,13 @@ class Combatant:
         self.blocking_power = blocking_power # blocking ability (fixed)
         self.evading_ability = evading_ability # evading ability (fixed)
         self.mobility = mobility # movement speed (fixed)
-        self.range = range # attack range (fixed)
+        self.range = (range_a, range_b) # attack range (fixed)
         self.perception = perception
         self.stealth = stealth
         self.stamina_recovery = stamina_recovery # stamina recovery rate
         self.action = {"type": "idle", "combatant": self, "time": ACTIONS["idle"]["time"], "status": "pending", "target": None}
+        self.position = position # current position
+        self.facing = facing # current facing
         self.opponent = opponent
 
     def decide_action(self, timer, event_counter, distance):
@@ -59,6 +64,7 @@ class Combatant:
         blocking = ACTIONS["blocking"]
         keep_blocking = ACTIONS["keep_blocking"]
         stop_blocking = ACTIONS["stop_blocking"]
+        turn_around = ACTIONS["turn_around"]
         
         current_action = self.action
         # Initialize action dictionary
@@ -66,13 +72,18 @@ class Combatant:
         
         # Blocking tests
         if self.name == "A":
-            if distance > self.range:
-                self.action["type"] = "move_forward"
-                self.action["time"] = move_forward["time"] + timer
+            if self.is_facing_opponent(self.opponent):
+                if self.is_within_range(distance):
+                    self.action["type"] = "attack"
+                    self.action["time"] = attack["time"] + timer
+                    self.action["target"] = self.opponent
+                else:
+                    self.action["type"] = "move_forward"
+                    self.action["time"] = move_forward["time"] + timer
             else:
-                self.action["type"] = "attack"
-                self.action["time"] = attack["time"] + timer
-                self.action["target"] = self.opponent
+                self.action["type"] = "turn_around"
+                self.action["time"] = turn_around["time"] + timer
+
         else:
             if current_action["type"] == "blocking":
                 self.action["type"] = "keep_blocking"
@@ -163,4 +174,16 @@ class Combatant:
         """
         Check if the combatant is defeated.
         """
-        return self.health <= 0        
+        return self.health <= 0 
+    
+    def is_within_range(self, distance):
+        """
+        Check if the opponent is within range.
+        """
+        return self.range[0] <= distance <= self.range[1]       
+
+    def is_facing_opponent(self, opponent):
+        """
+        Check if the combatant is facing the opponent.
+        """
+        return self.facing == opponent.position
