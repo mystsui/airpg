@@ -39,16 +39,10 @@ class CombatSystem:
         combatant.opponent = assumed_opponent
         # print(assumed_opponent)
 
-
     def determine_next_event(self):
         """
         Determine which combatant's action should be processed next.
-        """
-
-        if self.event_counter == 0:
-            for c in self.combatants:
-                c.apply_action_state(ACTIONS["idle"], self.timer, self.event_counter, self.distance)
-        
+        """        
         # Filter combatants with valid actions
         combatants_actions = [c.action for c in self.combatants if c.action]
         self.event_counter += 1
@@ -65,10 +59,21 @@ class CombatSystem:
 
         # Sort actions happening at the same time based on priority
         action_priority = {
-            'off_balance': 1, 'idle': 2, 'reset': 3,
-            'move_forward': 4, 'move_backward': 5, 'attack': 6, 'turn_around': 7,
-            'evading': 8, 'blocking': 9, 'keep_blocking': 10, 'try_evade': 11,
-            'try_block': 12, 'recover': 13
+            'off_balance': 1,
+            'idle': 2, 
+            'reset': 3,
+            'move_forward': 4, 
+            'move_backward': 5, 
+            'release_attack': 6,
+            'stop_attack': 7, 
+            'turn_around': 8,
+            'evading': 9, 
+            'blocking': 10, 
+            'keep_blocking': 11,
+            'try_attack' : 12, 
+            'try_evade': 13,
+            'try_block': 14, 
+            'recover': 15
         }
 
         # Sort all actions at once using status as primary key
@@ -105,9 +110,15 @@ class CombatSystem:
         """
         combatant = event['combatant']
         action_type = event['type']
+        
+        if action_type == "try_attack":
+            self.process_try_attack(combatant, event)
 
-        if action_type == "attack":
-            self.process_attack(combatant, event)
+        elif action_type == "release_attack":
+            self.process_release_attack(combatant, event)
+            
+        elif action_type == "stop_attack":
+            self.process_stop_attack(combatant, event)
         
         elif action_type == "move_forward":
             self.process_move_forward(combatant, event)
@@ -147,16 +158,29 @@ class CombatSystem:
             
         else:
             print(f"Unknown action type: {action_type}")
-
-    def process_attack(self, combatant, event):
+            
+    def process_try_attack(self, combatant, event):
         """
-        Process an attack action between two combatants.
+        Process a try_attack action for a combatant.
+        """
+        event['status'] = "completed"
+        combatant.stamina -= ACTIONS["try_attack"]["stamina_cost"]
+        self.processed_action_log(combatant, event, targeted=False)
+        
+        #decide in the combatant module whether to release_attack or not
+        decision = combatant.decide_attack_action(self.timer, self.event_counter, self.distance)
+        self.events.append(decision)
+        
+
+    def process_release_attack(self, combatant, event):
+        """
+        Process an release_attack action between two combatants.
         """
         target = CombatSystem.find_target(self, combatant)
         event['status'] = "completed"
         event['damage'] = 0
-        combatant.stamina -= ACTIONS["attack"]["stamina_cost"]
-        if combatant.range < self.distance:
+        combatant.stamina -= ACTIONS["release_attack"]["stamina_cost"]
+        if combatant.is_within_range(self.distance) == False:
             event['result'] = "missed"
             applied_action_combatant = combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance)
             self.events.append(applied_action_combatant)
@@ -210,6 +234,18 @@ class CombatSystem:
 
                 applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
                 self.events.append(applied_action_combatant)
+                
+    def process_stop_attack(self, combatant, event):
+        """
+        Process a stop_attack action for a combatant.
+        """
+        event['status'] = "completed"
+        combatant.stamina -= ACTIONS["stop_attack"]["stamina_cost"]
+        self.processed_action_log(combatant, event, targeted=False)
+
+        # Schedule the next action for the combatant
+        decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
+        self.events.append(decision)
         
     def find_target(self, combatant):
         """
@@ -359,6 +395,11 @@ class CombatSystem:
     def process_turn_around(self, combatant, event):
         event['status'] = "completed"
         self.processed_action_log(combatant, event, targeted=False)
+        
+        if combatant.facing == "left":
+            combatant.facing = "right"
+        else:
+            combatant.facing = "left"
 
         # Schedule idle for the combatant
         applied_action_combatant = combatant.apply_action_state(ACTIONS["idle"], self.timer, self.event_counter, self.distance)
@@ -405,7 +446,7 @@ class CombatSystem:
 
         :param timestamp: The time of the event in milliseconds.
         :param combatant: The combatant performing the action.
-        :param action: The action type (e.g., attack, evade).
+        :param action: The action type (e.g., release_attack, evade).
         :param target: The target of the action (if applicable).
         :param result: The result of the action (e.g., hit, miss, blocked).
         :param kwargs: Additional details about the event (e.g., damage, distance).
@@ -494,8 +535,11 @@ class CombatSystem:
         damage = log.get("damage", None)
 
         message = f"[{timestamp}ms] {combatant['name']} "
+        
+        if action == "try_attack":
+            message += f"attempted an attack."
 
-        if action == "attack":                    
+        elif action == "release_attack":                    
             if result == "hit":
                 message += f"attacked {target['name']} for {damage} damage (remaining HP: {target['health']})."
             elif result == "blocked":
@@ -506,6 +550,9 @@ class CombatSystem:
                 message += f"attacked {target['name']}, but the attack was evaded."
             else:
                 message += f"attempted an attack, but missed."
+                
+        if action == "stop_attack":
+            message += f"stopped an attack."
 
         elif action == "move_forward":
             message += f"moved forward, reducing the distance to {distance}."
@@ -564,9 +611,15 @@ class CombatSystem:
         damage = log.get("damage", None)
 
         message = f"[{timestamp}ms] {combatant['name']} "
+        
+        if action == "try_attack":
+            message += f"is attempting an attack which will be released/stopped in {timeend}ms."
 
-        if action == "attack":                    
-            message += f"is attempting an attack which will land in {timeend}ms."
+        elif action == "release_attack":                    
+            message += f"is releasing an attack which will land in {timeend}ms."
+            
+        elif action == "stop_attack":
+            message += f"is stopping an attack which will be completed in {timeend}ms."
 
         elif action == "move_forward":
             message += f"is attempting to move forward which will be completed in {timeend}ms."

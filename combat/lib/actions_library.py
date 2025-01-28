@@ -17,10 +17,22 @@ ACTIONS = {
         "stamina_cost": 0,
         "result": None,
     },
-    "attack": {
-        "time": 50,
-        "type": "attack",
+    "try_attack": { # can be concealed from the opponent. The chance of being concealed lies upon the combatant's stealth ability and the opponent's perception ability.
+        "time": 30,
+        "type": "try_attack",
         "stamina_cost": 10,
+        "result": None, # concealed or revealed
+    },
+    "release_attack": { # cannot be concealed from the opponent.
+        "time": 20,
+        "type": "release_attack",
+        "stamina_cost": 0,
+        "result": None, # hit, missed, blocked, evaded, breached
+    },
+    "stop_attack": { # concealed if the try_attack action is concealed. It is the preparation for the stop_attack action.
+        "time": 10,
+        "type": "stop_attack",
+        "stamina_cost": 2,
         "result": None,
     },
     "move_forward": { # move_forward can be chosen to move towards the opponent. the distance that the combatant can move is dependent upon the combatant's mobility.

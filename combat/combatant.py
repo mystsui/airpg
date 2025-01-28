@@ -52,19 +52,9 @@ class Combatant:
         :param opponent: Opponent combatant object (read-only for action type).
         """
         # Load action definitions
-        move_forward = ACTIONS["move_forward"]
-        move_backward = ACTIONS["move_backward"]
-        attack = ACTIONS["attack"]
-        recover = ACTIONS["recover"]
-        idle = ACTIONS["idle"]
-        reset = ACTIONS["reset"]
-        try_evade = ACTIONS["try_evade"]
-        evading = ACTIONS["evading"]
-        try_block = ACTIONS["try_block"]
-        blocking = ACTIONS["blocking"]
-        keep_blocking = ACTIONS["keep_blocking"]
-        stop_blocking = ACTIONS["stop_blocking"]
         turn_around = ACTIONS["turn_around"]
+        move_forward = ACTIONS["move_forward"]
+        try_attack = ACTIONS["try_attack"]
         
         current_action = self.action
         # Initialize action dictionary
@@ -92,8 +82,23 @@ class Combatant:
         #         self.action["type"] = "try_block"
         #         self.action["time"] = try_block["time"] + timer
 
-        self.action["type"] = "turn_around"
-        self.action["time"] = turn_around["time"] + timer
+        # self.action["type"] = "turn_around"
+        # self.action["time"] = turn_around["time"] + timer
+        
+        #aggresive combatant
+        if self.is_facing_opponent(self.opponent):
+            if self.is_within_range(distance):
+                self.action["type"] = "try_attack"
+                self.action["time"] = try_attack["time"] + timer
+                self.action["target"] = self.opponent
+            else:
+                self.action["type"] = "move_forward"
+                self.action["time"] = move_forward["time"] + timer
+        else:
+            self.action["type"] = "turn_around"
+            self.action["time"] = turn_around["time"] + timer
+            
+        print(f"{self.name} decided to {self.action['type']} at time {self.action['time']}")
                 
             
         # Set the combatant for the action
@@ -111,6 +116,42 @@ class Combatant:
         
         # print(f"{self.name} decided to {self.action['type']} effective at time {self.action['time']} while having {self.stamina} stamina at {timer}")
 
+        log = self.decision_applied_log(timer, event_counter, distance)
+        return log
+    
+    def decide_attack_action(self, timer, event_counter, distance):
+        """
+        Decide the next action based on the current state.
+        This should be a decision tree or a policy network. For now, we will use a simple rule-based system.
+
+        :param timer: Current battle time.
+        :param distance: Current distance between combatants.
+        :param opponent: Opponent combatant object (read-only for action type).
+        """
+        # Load action definitions
+        release_attack = ACTIONS["release_attack"]
+        stop_attack = ACTIONS["stop_attack"]
+
+        current_action = self.action
+        # Initialize action dictionary
+        self.action = {}
+        
+        if self.is_within_range(distance):
+            self.action["type"] = "release_attack"
+            self.action["time"] = release_attack["time"] + timer
+        else:
+            self.action["type"] = "stop_attack"
+            self.action["time"] = stop_attack["time"] + timer
+
+        # Set the combatant for the action
+        self.action["combatant"] = self
+        
+        # Update the action status
+        self.action["status"] = "pending"
+        
+        # Set the target for the action
+        self.action["target"] = self.opponent
+        
         log = self.decision_applied_log(timer, event_counter, distance)
         return log
     
@@ -189,4 +230,6 @@ class Combatant:
         """
         Check if the combatant is facing the opponent.
         """
+        
+        print(f"{self.name} is facing {self.facing} and opponent is at {opponent.position}")
         return self.facing == opponent.position
