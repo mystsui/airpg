@@ -1,5 +1,4 @@
 from combat.lib.actions_library import ACTIONS
-import copy
 
 class Combatant:
     def __init__(
@@ -42,6 +41,27 @@ class Combatant:
         self.facing = facing # current facing
         self.opponent = opponent
 
+        print(f"{self.name} has been initialized with the position: {self.position} and facing: {self.facing}")
+
+    def create_action(self, action_type, timer, target=None):
+        """Create standardized action dictionary."""
+        return {
+            "type": action_type,
+            "time": ACTIONS[action_type]["time"] + timer,
+            "combatant": self,
+            "status": "pending",
+            "target": target
+        }
+
+    def can_perform_action(self, action_type):
+        """Check if the combatant can perform the given action based on constraints."""
+        action = ACTIONS[action_type]
+        return self.stamina >= action["stamina_cost"]
+
+    def get_available_actions(self):
+        """Get a list of actions the combatant can perform based on constraints."""
+        return [action for action in ACTIONS if self.can_perform_action(action)]
+
     def decide_action(self, timer, event_counter, distance):
         """
         Decide the next action based on the current state.
@@ -51,74 +71,21 @@ class Combatant:
         :param distance: Current distance between combatants.
         :param opponent: Opponent combatant object (read-only for action type).
         """
-        # Load action definitions
-        turn_around = ACTIONS["turn_around"]
-        move_forward = ACTIONS["move_forward"]
-        try_attack = ACTIONS["try_attack"]
-        
-        current_action = self.action
-        # Initialize action dictionary
-        self.action = {}
-        
-        # Blocking tests
-        # if self.name == "A":
-        #     if self.is_facing_opponent(self.opponent):
-        #         if self.is_within_range(distance):
-        #             self.action["type"] = "attack"
-        #             self.action["time"] = attack["time"] + timer
-        #             self.action["target"] = self.opponent
-        #         else:
-        #             self.action["type"] = "move_forward"
-        #             self.action["time"] = move_forward["time"] + timer
-        #     else:
-        #         self.action["type"] = "turn_around"
-        #         self.action["time"] = turn_around["time"] + timer
+        available_actions = self.get_available_actions()
 
-        # else:
-        #     if current_action["type"] == "blocking":
-        #         self.action["type"] = "keep_blocking"
-        #         self.action["time"] = keep_blocking["time"] + timer
-        #     else:
-        #         self.action["type"] = "try_block"
-        #         self.action["time"] = try_block["time"] + timer
-
-        # self.action["type"] = "turn_around"
-        # self.action["time"] = turn_around["time"] + timer
-        
-        #aggresive combatant
-        if self.is_facing_opponent(self.opponent):
-            if self.is_within_range(distance):
-                self.action["type"] = "try_attack"
-                self.action["time"] = try_attack["time"] + timer
-                self.action["target"] = self.opponent
-            else:
-                self.action["type"] = "move_forward"
-                self.action["time"] = move_forward["time"] + timer
+        if not self.is_facing_opponent(self.opponent) and "turn_around" in available_actions:
+            action = self.create_action("turn_around", timer)
+        elif self.is_within_range(distance) and "try_attack" in available_actions:
+            action = self.create_action("try_attack", timer, self.opponent)
+        elif "move_forward" in available_actions:
+            action = self.create_action("move_forward", timer)
         else:
-            self.action["type"] = "turn_around"
-            self.action["time"] = turn_around["time"] + timer
-            
-        print(f"{self.name} decided to {self.action['type']} at time {self.action['time']}")
-                
-            
-        # Set the combatant for the action
-        self.action["combatant"] = self
-
-        # Update the action time to the current timer plus the action time
-        # self.action["time"] = ACTIONS[self.action["type"]]["time"] + timer
-        # print(f"{self.name} decided to {self.action['type']} with {self.action["time"]}")
-
-        # Update the action status
-        self.action["status"] = "pending"
-
-        # Set the target for the action
-        self.action["target"] = self.opponent
+            action = self.create_action("idle", timer)
         
-        # print(f"{self.name} decided to {self.action['type']} effective at time {self.action['time']} while having {self.stamina} stamina at {timer}")
-
+        self.action = action
         log = self.decision_applied_log(timer, event_counter, distance)
         return log
-    
+
     def decide_attack_action(self, timer, event_counter, distance):
         """
         Decide the next action based on the current state.
@@ -128,57 +95,31 @@ class Combatant:
         :param distance: Current distance between combatants.
         :param opponent: Opponent combatant object (read-only for action type).
         """
-        # Load action definitions
-        release_attack = ACTIONS["release_attack"]
-        stop_attack = ACTIONS["stop_attack"]
+        available_actions = self.get_available_actions()
 
-        current_action = self.action
-        # Initialize action dictionary
-        self.action = {}
-        
-        if self.is_within_range(distance):
-            self.action["type"] = "release_attack"
-            self.action["time"] = release_attack["time"] + timer
+        if self.is_within_range(distance) and "release_attack" in available_actions:
+            action = self.create_action("release_attack", timer)
+        elif "stop_attack" in available_actions:
+            action = self.create_action("stop_attack", timer)
         else:
-            self.action["type"] = "stop_attack"
-            self.action["time"] = stop_attack["time"] + timer
-
-        # Set the combatant for the action
-        self.action["combatant"] = self
+            action = self.create_action("idle", timer)
         
-        # Update the action status
-        self.action["status"] = "pending"
-        
-        # Set the target for the action
-        self.action["target"] = self.opponent
-        
+        self.action = action
         log = self.decision_applied_log(timer, event_counter, distance)
         return log
-    
-    def apply_action_state(self, _action, timer, event_counter, distance):
+
+    def apply_action_state(self, action_type, timer, event_counter, distance):
         """
         Update the action status after each event.
         """
-        _action = copy.copy(_action)
-        self.action = {
-            "time": _action["time"],
-            "type": _action["type"],
-            "stamina_cost": _action["stamina_cost"],
-        }
-        self.action["time"] += timer
-        self.action["combatant"] = self
-        self.action["status"] = "pending"
-        self.action["target"] = None
-
-        log = self.decision_applied_log(timer, event_counter, distance)
+        self.action = self.create_action(action_type, timer)
+        log = self.decision_applied_log(timer, event_counter + 1, distance)
         return log
-        # print(f"!!!{self.name} decided to {self.action['type']} at time {self.action['time']}")
-    
+
     def decision_applied_log(self, timer, event_counter, distance):
         """
         Prepare the decision log for the combatant.
         """
-
         log = {
             "timestamp": timer,
             "event_number": event_counter + 1,
@@ -198,10 +139,9 @@ class Combatant:
             },
             "result": None,
             "damage": None,
-            # "details": kwargs  # Additional information like damage, distance, etc.
         }
         return log
-    
+
     def update_opponent_action(self, action):
         """
         Update on the combatant's perception the opponent's current action.
@@ -230,6 +170,4 @@ class Combatant:
         """
         Check if the combatant is facing the opponent.
         """
-        
-        print(f"{self.name} is facing {self.facing} and opponent is at {opponent.position}")
         return self.facing == opponent.position

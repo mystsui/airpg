@@ -1,49 +1,30 @@
-import copy
 import random
-import sys
 
 from combat.lib.actions_library import ACTIONS
 
 class CombatSystem:
+    # Initialize the combat system
     def __init__(self, duration, distance):
-        """
-        Initialize the battle state.
-        
-        :param duration: Total duration of the battle in milliseconds.
-        """
-        self.timer = 0  # Current time
-        self.duration = duration  # Total duration of the battle
-        self.combatants = []  # List of combatants
-        self.distance = distance  # Distance between the two teams
-        self.events = []  # Log of processed events (snapshots)
-        self.next_event = None  # Reference to the next event to process
-        self.event_counter = 0  # Initialize counter
+        self.timer = 0
+        self.duration = duration
+        self.combatants = []
+        self.distance = distance
+        self.events = []
+        self.next_event = None
+        self.event_counter = 0
 
-
+    # Add a combatant to the battle
     def add_combatant(self, combatant):
-        """
-        Add a combatant to the battle.
-        """
         combatant.team = "challenger" if len(self.combatants) == 0 else "defender"
         self.combatants.append(combatant)
         print(f"Added {combatant} to the team {combatant.team}")
 
+    # Start the battle
     def get_opponent_data(self, combatant, assumed_opponent):
-        """
-        At game start, each combatant gets an assumed version of their opponent's stats. Unless the combatant has had a previous
-        battle with the opponent and thus had the oppponent's previous assumptions saved.
-        The actual opponent stats are hidden from each combatant.
-        """
-            
-        # Set the assumed opponent stats for this combatant
         combatant.opponent = assumed_opponent
-        # print(assumed_opponent)
 
+    # Determine the next event according to the time and priority
     def determine_next_event(self):
-        """
-        Determine which combatant's action should be processed next.
-        """        
-        # Filter combatants with valid actions
         combatants_actions = [c.action for c in self.combatants if c.action]
         self.event_counter += 1
 
@@ -51,409 +32,196 @@ class CombatSystem:
             self.next_event = None
             print("No valid combatant actions found.")
             return
-        
-        # Find the action with the earliest time
 
-        # Define status priority (completed first)
         status_priority = {'completed': 0, 'pending': 1}
-
-        # Sort actions happening at the same time based on priority
         action_priority = {
-            'off_balance': 1,
-            'idle': 2, 
-            'reset': 3,
-            'move_forward': 4, 
-            'move_backward': 5, 
-            'release_attack': 6,
-            'stop_attack': 7, 
-            'turn_around': 8,
-            'evading': 9, 
-            'blocking': 10, 
-            'keep_blocking': 11,
-            'try_attack' : 12, 
-            'try_evade': 13,
-            'try_block': 14, 
-            'recover': 15
+            # NEUTRAL actions
+            'idle': 1,
+            'reset': 2,
+            'recover': 3,
+            'off_balance': 4,
+
+            # MOVEMENT actions
+            'move_forward': 5,
+            'move_backward': 6,
+            'turn_around': 7,
+
+            # DEFENSE actions
+            'try_block': 8,
+            'blocking': 9,
+            'keep_blocking': 10,
+
+            # EVASION actions
+            'try_evade': 11,
+            'evading': 12,
+
+            # ATTACK actions
+            'try_attack': 13,
+            'release_attack': 14,
+            'stop_attack': 15
         }
 
-        # Sort all actions at once using status as primary key
         combatants_actions.sort(key=lambda x: (
-            x['time'],                           # First by time
-            status_priority[x['status']],        # Then by status (completed before pending)
-            action_priority[x['type']]           # Finally by action type priority
+            x['time'], status_priority[x['status']], action_priority[x['type']]
         ))
 
         self.next_event = combatants_actions[0] if combatants_actions else None
-        
-        # Set next event to first action after sorting
-        self.next_event = combatants_actions[0] if combatants_actions else None
-        
+
+    # Update the battle state
     def update(self):
-        """
-        Process the next event in the battle.
-        """
         if not self.next_event:
             return
 
-        # Jump to the next event's time
         self.timer = self.next_event['time']
-
-        # Process the event
         self.process_event(self.next_event)
-
-        # Determine the next event
         self.determine_next_event()
 
+    # Process the event
     def process_event(self, event):
-        """
-        Process an individual event.
-        """
         combatant = event['combatant']
         action_type = event['type']
-        
-        if action_type == "try_attack":
-            self.process_try_attack(combatant, event)
-
-        elif action_type == "release_attack":
-            self.process_release_attack(combatant, event)
-            
-        elif action_type == "stop_attack":
-            self.process_stop_attack(combatant, event)
-        
-        elif action_type == "move_forward":
-            self.process_move_forward(combatant, event)
-            
-        elif action_type == "move_backward":
-            self.process_move_backward(combatant, event)
-
-        elif action_type == "recover":
-            self.process_recovery(combatant, event)
-        
-        elif action_type == "idle":
-            self.process_idle(combatant, event)
-        
-        elif action_type == "reset":
-            self.process_reset(combatant, event)
-            
-        elif action_type == "try_block":
-            self.process_try_block(combatant, event)
-        
-        elif action_type == "try_evade":
-            self.process_try_evade(combatant, event)
-            
-        elif action_type == "blocking":
-            self.process_blocking(combatant, event)
-            
-        elif action_type == "keep_blocking":
-            self.process_keep_blocking(combatant, event)
-            
-        elif action_type == "evading":
-            self.process_evading(combatant, event)
-            
-        elif action_type == "off_balance":
-            self.process_off_balance(combatant, event)
-
-        elif action_type == "turn_around":
-            self.process_turn_around(combatant, event)
-            
+        process_method = getattr(self, f"process_{action_type}", None)
+        if process_method:
+            process_method(combatant, event)
         else:
             print(f"Unknown action type: {action_type}")
-            
-    def process_try_attack(self, combatant, event):
-        """
-        Process a try_attack action for a combatant.
-        """
-        event['status'] = "completed"
-        combatant.stamina -= ACTIONS["try_attack"]["stamina_cost"]
-        self.processed_action_log(combatant, event, targeted=False)
-        
-        #decide in the combatant module whether to release_attack or not
-        decision = combatant.decide_attack_action(self.timer, self.event_counter, self.distance)
-        self.events.append(decision)
-        
 
-    def process_release_attack(self, combatant, event):
-        """
-        Process an release_attack action between two combatants.
-        """
-        target = CombatSystem.find_target(self, combatant)
-        event['status'] = "completed"
-        event['damage'] = 0
-        combatant.stamina -= ACTIONS["release_attack"]["stamina_cost"]
-        if combatant.is_within_range(self.distance) == False:
-            event['result'] = "missed"
-            applied_action_combatant = combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance)
-            self.events.append(applied_action_combatant)
-        else:
-            if target.action['type'] == "blocking":
-                event['result'] = "blocked"
-                event['target'] = target
-                damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)              
-                event['damage'] = damage
-                
-                if(damage <= target.blocking_power):
-                    applied_action_combatant = combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance)
-                    self.events.append(applied_action_combatant)
-                    
-                    applied_action_target = target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-                    self.events.append(applied_action_target)
-                
-                    event['result'] = "blocked"
-                else:
-                    applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-                    self.events.append(applied_action_combatant)
-                    
-                    applied_action_target = target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-                    self.events.append(applied_action_target)
-                    
-                    event['result'] = "breached"
-                    
-                breach_damage = damage - target.blocking_power
-                target.blocking_power = max(0, target.blocking_power - damage)
-                target.health = max(0, target.health - breach_damage)
-                self.processed_action_log(combatant, event, targeted=True)
-            elif target.action['type'] == "evading":
-                event['result'] = "evaded"
-                self.processed_action_log(combatant, event, targeted=True)
-
-                applied_action_target = target.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-                self.events.append(applied_action_target)
-                
-                combatant.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance)
-                self.events.append(applied_action_combatant)
-            else:
-                damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)
-                target.health = max(0, target.health - damage)
-                event['result'] = "hit"
-                event['damage'] = damage
-                self.processed_action_log(combatant, event, targeted=True)
-                
-                # Upon getting hit, the target is reset
-                applied_action_target = target.apply_action_state(ACTIONS["off_balance"], self.timer, self.event_counter, self.distance)
-                self.events.append(applied_action_target)
-
-                applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-                self.events.append(applied_action_combatant)
-                
-    def process_stop_attack(self, combatant, event):
-        """
-        Process a stop_attack action for a combatant.
-        """
-        event['status'] = "completed"
-        combatant.stamina -= ACTIONS["stop_attack"]["stamina_cost"]
-        self.processed_action_log(combatant, event, targeted=False)
-
-        # Schedule the next action for the combatant
-        decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
-        self.events.append(decision)
-        
+    # Method to find the target for targeting actions
     def find_target(self, combatant):
-        """
-        Find a target for the given combatant from the opposing team who is not defeated.
-        """
         for potential_target in self.combatants:
             if potential_target.team != combatant.team and not potential_target.is_defeated():
                 return potential_target
-        return None  # No valid target found
-        
-    def process_move_forward(self, combatant, event):
-        """
-        Process a move forward action for a combatant.
-        """
-        event['status'] = "completed"
-        combatant.stamina -= ACTIONS["move_forward"]["stamina_cost"]
-        self.distance = max(0, self.distance - combatant.mobility)
-        self.processed_action_log(combatant, event, targeted=False)
+        return None
     
-        # Schedule recovery for the combatant
-        applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-        self.events.append(applied_action_combatant)
-
-    def process_move_backward(self, combatant, event):
-        """
-        Process a move backward action for a combatant.
-        """
+    # GENERIC actions processing
+    def process_action(self, combatant, event, action_key, targeted=False):
         event['status'] = "completed"
-        combatant.stamina -= ACTIONS["move_backward"]["stamina_cost"]
-        self.distance = min(600, self.distance + combatant.mobility)
-        self.processed_action_log(combatant, event, targeted=False)
+        combatant.stamina -= ACTIONS[action_key]["stamina_cost"]
+        self.processed_action_log(combatant, event, targeted)
+        decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
+        self.events.append(decision)
 
-        # Schedule recovery for the combatant
-        applied_action_combatant = combatant.apply_action_state( ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-        self.events.append(applied_action_combatant)
+    # NEUTRAL actions processing
+    def process_idle(self, combatant, event):
+        self.process_action(combatant, event, "idle")
+
+    def process_reset(self, combatant, event):
+        self.process_action(combatant, event, "reset")
 
     def process_recovery(self, combatant, event):
-        """
-        Process a recovery action for a combatant.
-        """
-        event['status'] = "completed"
+        self.process_action(combatant, event, "recover")
         combatant.stamina = min(combatant.max_stamina, combatant.stamina + combatant.stamina_recovery)
-        self.processed_action_log(combatant, event, targeted=False)
-
-        # Schedule the next action for the combatant
-        decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
-        self.events.append(decision)
-        #UPDATE ACTION ON OPPONENT'S VIEW
-
-    
-    def process_idle(self, combatant, event):
-        """
-        Process an idle action for a combatant.
-        """
-        event['status'] = "completed"
-        self.processed_action_log(combatant, event, targeted=False)
-
-        # Schedule the next action for the combatant
-        decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
-        self.events.append(decision)
-    
-    def process_reset(self, combatant, event):
-        """
-        Process a reset action for a combatant.
-        """
-        event['status'] = "completed"
-        self.processed_action_log(combatant, event, targeted=False)
-
-        # Schedule the next action for the combatant
-        decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
-        self.events.append(decision)
-    
-    def process_try_block(self, combatant, event):
-        """
-        Process a block action for a combatant.
-        """
-        event['status'] = "completed"
-        combatant.stamina -= ACTIONS["try_block"]["stamina_cost"]
-        self.processed_action_log(combatant, event, targeted=False)
-
-        # Start the blocking action
-        blocking_action = copy.copy(ACTIONS["blocking"])
-        applied_action_combatant = combatant.apply_action_state(blocking_action, self.timer, self.event_counter, self.distance)
-        self.events.append(applied_action_combatant)
-        # print(f"{combatant.name} started blocking at {self.timer} with {combatant.blocking_ability} duration")
-    
-    def process_blocking(self, combatant, event):
-        """
-        Stop a blocking action for a combatant.
-        """
-        event['status'] = "pending"
-        self.processed_action_log(combatant, event, targeted=False)
-    
-        # Schedule the next action for the combatant
-        decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
-        self.events.append(decision)
-        
-    def process_keep_blocking(self, combatant, event):
-        """
-        Continue the blocking action.
-        """
-        event['status'] = "completed"
-        self.processed_action_log(combatant, event, targeted=False)
-    
-        # Restart the blocking action
-        blocking_action = copy.copy(ACTIONS["blocking"])
-        applied_action_combatant = combatant.apply_action_state(blocking_action, self.timer, self.event_counter, self.distance)
-        self.events.append(applied_action_combatant)
-        
-
-    def process_try_evade(self, combatant, event):
-        """
-        Process an evade action for a combatant.
-        """
-        event['status'] = "completed"
-        combatant.stamina -= ACTIONS["try_evade"]["stamina_cost"]
-        self.processed_action_log(combatant, event, targeted=False)
-        
-        # Start the evading action
-        evading_action = copy.copy(ACTIONS["evading"])
-        applied_action_combatant = combatant.apply_action_state(evading_action, self.timer, self.event_counter, self.distance)
-        self.events.append(applied_action_combatant)
-        # print(f"{combatant.name} started evading at {self.timer} with {combatant.evading_ability} duration")
-    
-    def process_evading(self, combatant, event):
-        """
-        Process an evading action for a combatant.
-        """
-        event['status'] = "completed"
-        self.processed_action_log(combatant, event, targeted=False)
-       
-        # Schedule recovery for the combatant
-        applied_actions_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-        self.events.append(applied_actions_combatant)
 
     def process_off_balance(self, combatant, event):
-        """
-        Process an off-balance action for a combatant.
-        """
-        event['status'] = "completed"
-        self.processed_action_log(combatant, event, targeted=False)
-
-        # Schedule recovery for the combatant
-        applied_action_combatant = combatant.apply_action_state(ACTIONS["reset"], self.timer, self.event_counter, self.distance)
-        self.events.append(applied_action_combatant)
-
+        self.process_action(combatant, event, "off_balance")
+    
+    # MOVEMENT actions processing
     def process_turn_around(self, combatant, event):
+        self.process_action(combatant, event, "turn_around")
+        combatant.facing = "right" if combatant.facing == "left" else "left"
+
+    def process_move_forward(self, combatant, event):
+        self.process_action(combatant, event, "move_forward")
+        self.distance = max(0, self.distance - combatant.mobility)
+
+    def process_move_backward(self, combatant, event):
+        self.process_action(combatant, event, "move_backward")
+        self.distance = min(600, self.distance + combatant.mobility)
+
+    # DEFENSE actions processing
+    def process_try_block(self, combatant, event):
+        self.process_action(combatant, event, "try_block")
+        self.events.append(combatant.apply_action_state("blocking", self.timer, self.event_counter, self.distance))
+
+    def process_blocking(self, combatant, event):
+        self.process_action(combatant, event, "blocking")
+
+    def process_keep_blocking(self, combatant, event):
+        self.process_action(combatant, event, "keep_blocking")
+        self.events.append(combatant.apply_action_state("blocking", self.timer, self.event_counter, self.distance))
+
+    # EVASION actions processing
+    def process_try_evade(self, combatant, event):
+        self.process_action(combatant, event, "try_evade")
+        self.events.append(combatant.apply_action_state("evading", self.timer, self.event_counter, self.distance))
+
+    def process_evading(self, combatant, event):
+        self.process_action(combatant, event, "evading")
+
+    # ATTACK actions processing
+    def process_try_attack(self, combatant, event):
         event['status'] = "completed"
+        combatant.stamina -= ACTIONS["try_attack"]["stamina_cost"]
         self.processed_action_log(combatant, event, targeted=False)
-        
-        if combatant.facing == "left":
-            combatant.facing = "right"
+        decision = combatant.decide_attack_action(self.timer, self.event_counter, self.distance)
+        self.events.append(decision)
+
+    def process_release_attack(self, combatant, event):
+        target = self.find_target(combatant)
+        event['status'] = "completed"
+        event['damage'] = 0
+        combatant.stamina -= ACTIONS["release_attack"]["stamina_cost"]
+        if not combatant.is_within_range(self.distance):
+            event['result'] = "missed"
+            self.events.append(combatant.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
         else:
-            combatant.facing = "left"
+            self.handle_attack_result(combatant, target, event)
 
-        # Schedule idle for the combatant
-        applied_action_combatant = combatant.apply_action_state(ACTIONS["idle"], self.timer, self.event_counter, self.distance)
-        self.events.append(applied_action_combatant)
+    def handle_attack_result(self, combatant, target, event):
+        if target.action['type'] == "blocking":
+            self.handle_blocking(combatant, target, event)
+        elif target.action['type'] == "evading":
+            event['result'] = "evaded"
+            self.processed_action_log(combatant, event, targeted=True)
+            self.events.append(target.apply_action_state("reset", self.timer, self.event_counter, self.distance))
+            self.events.append(combatant.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
+        else:
+            damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)
+            target.health = max(0, target.health - damage)
+            event['result'] = "hit"
+            event['damage'] = damage
+            self.processed_action_log(combatant, event, targeted=True)
+            self.events.append(target.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
+            self.events.append(combatant.apply_action_state("reset", self.timer, self.event_counter, self.distance))
 
+    def handle_blocking(self, combatant, target, event):
+        event['result'] = "blocked"
+        damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)
+        event['damage'] = damage
+        if damage <= target.blocking_power:
+            self.events.append(combatant.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
+            self.events.append(target.apply_action_state("reset", self.timer, self.event_counter, self.distance))
+        else:
+            self.events.append(combatant.apply_action_state("reset", self.timer, self.event_counter, self.distance))
+            self.events.append(target.apply_action_state("reset", self.timer, self.event_counter, self.distance))
+            event['result'] = "breached"
+        breach_damage = damage - target.blocking_power
+        target.blocking_power = max(0, target.blocking_power - damage)
+        target.health = max(0, target.health - breach_damage)
+        self.processed_action_log(combatant, event, targeted=True)
+
+    def process_stop_attack(self, combatant, event):
+        self.process_action(combatant, event, "stop_attack")
+
+    # LOGGING
     def processed_action_log(self, combatant, event, targeted=False):
-        """
-        Append a log entry to the battle log.
-        """
-        target = None
-        if targeted:
-            target = event['target']
-            
+        target = event.get('target') if targeted else None
         self.log_event(
-                timestamp=self.timer,
-                event_number=self.event_counter + 1,
-                timeend=event['time'],
-                combatant=combatant,
-                action=event['type'],
-                distance=self.distance,
-                status=event['status'],
-                target=target,
-                result=event['result'] if 'result' in event else None,
-                damage=event['damage'] if 'damage' in event else None,
-            )
+            timestamp=self.timer,
+            event_number=self.event_counter + 1,
+            timeend=event['time'],
+            combatant=combatant,
+            action=event['type'],
+            distance=self.distance,
+            status=event['status'],
+            target=target,
+            result=event.get('result'),
+            damage=event.get('damage')
+        )
 
-        
-    def log_event(
-        self,
-        event_number, 
-        timestamp,
-        timeend, 
-        combatant, 
-        action,
-        distance,
-        status, 
-        target=None, 
-        result=None,
-        damage=None, 
-        # **kwargs
-    ):
-        """
-        Logs a combat event with all details for front-end display.
-
-        :param timestamp: The time of the event in milliseconds.
-        :param combatant: The combatant performing the action.
-        :param action: The action type (e.g., release_attack, evade).
-        :param target: The target of the action (if applicable).
-        :param result: The result of the action (e.g., hit, miss, blocked).
-        :param kwargs: Additional details about the event (e.g., damage, distance).
-        """
+    def log_event(self, event_number, timestamp, timeend, combatant, action, distance, status, target=None, result=None, damage=None):
         if not combatant:
             return
-            
         log = {
             "timestamp": timestamp,
             "event_number": event_number,
@@ -462,7 +230,7 @@ class CombatSystem:
                 "name": combatant.name,
                 "health": combatant.health,
                 "stamina": combatant.stamina
-            } if combatant else None,
+            },
             "action": action,
             "distance": distance,
             "status": status,
@@ -472,74 +240,35 @@ class CombatSystem:
                 "stamina": target.stamina if target else None
             },
             "result": result,
-            "damage": damage,
-            # "details": kwargs  # Additional information like damage, distance, etc.
+            "damage": damage
         }
         self.events.append(log)
-        
-    # def replay_log(self):
-    #     """
-    #     Replay the battle log, presenting each action in a human-readable format.
-    #     """
-    #     print("\n--- Battle Replay ---\n")
-    #     # print(self.events)
-    #     for log in self.events:
-    #         print(f"{log['event_number']}: {log["action"]} at {log["timestamp"]} is {log["status"]}")
-    #     for log in self.events:
-    #         # Build the replay message
-    #         if log["status"] == "completed":
-    #             message = self.message_for_completed_event(log)
-                
-    #         else:
-    #             message = self.message_for_pending_event(log)
-                
-                
-    #         # Print the formatted message
-    #         print(message)
 
-    #     print("\n--- Replay Complete ---\n")
-
+    # REPLAY
     def replay_log(self):
-        """
-        Replay the battle log, presenting each action in a human-readable format.
-        """
         print("\n--- Battle Replay ---\n")
-        
-        # Sort events
         sorted_events = sorted(self.events, key=lambda x: (
-            x['timestamp'],
-            1 if x['status'] == 'pending' else 0,
-            x['event_number']
+            x['timestamp'], 1 if x['status'] == 'pending' else 0, x['event_number']
         ))
-        
-        # Print events in sorted order
         for log in sorted_events:
-            # print(f"{log['event_number']}: {log['action']} at {log['timestamp']} is {log['status']}")
-            message = (self.message_for_completed_event(log) 
-                    if log["status"] == "completed" 
-                    else self.message_for_pending_event(log))
+            message = self.message_for_completed_event(log) if log["status"] == "completed" else self.message_for_pending_event(log)
             if message:
                 print(message)
-                
         print("\n--- Replay Complete ---\n")
 
     def message_for_completed_event(self, log):
         timestamp = log["timestamp"]
-        timeend = log["timeend"]
         combatant = log["combatant"]
         target = log["target"]
         action = log["action"]
         result = log["result"]
         distance = log["distance"]
-        status = log["status"]
         damage = log.get("damage", None)
 
         message = f"[{timestamp}ms] {combatant['name']} "
-        
         if action == "try_attack":
-            message += f"attempted an attack."
-
-        elif action == "release_attack":                    
+            message += "attempted an attack."
+        elif action == "release_attack":
             if result == "hit":
                 message += f"attacked {target['name']} for {damage} damage (remaining HP: {target['health']})."
             elif result == "blocked":
@@ -549,125 +278,81 @@ class CombatSystem:
             elif result == "evaded":
                 message += f"attacked {target['name']}, but the attack was evaded."
             else:
-                message += f"attempted an attack, but missed."
-                
-        if action == "stop_attack":
-            message += f"stopped an attack."
-
+                message += "attempted an attack, but missed."
+        elif action == "stop_attack":
+            message += "stopped an attack."
         elif action == "move_forward":
             message += f"moved forward, reducing the distance to {distance}."
-
         elif action == "move_backward":
             message += f"moved backward, increasing the distance to {distance}."
-
         elif action == "recover":
             message += f"recovered stamina, now at {combatant['stamina']}."
-
         elif action == "try_block":
-            message += f"started a blocking stance."
-
+            message += "started a blocking stance."
         elif action == "try_evade":
-            message += f"started an evasive stance."
-
+            message += "started an evasive stance."
         elif action == "blocking":
-            message += f"stopped blocking."
-
+            message += "stopped blocking."
         elif action == "keep_blocking":
-            message += f"kept blocking."
-
+            message += "kept blocking."
         elif action == "evading":
-            message += f"stopped evading."
-
+            message += "stopped evading."
         elif action == "turn_around":
-            message += f"turned around."
-
+            message += "turned around."
         elif action == "idle":
-            message += f"took no action ({combatant["stamina"]} left)."
-
+            message += f"took no action ({combatant['stamina']} left)."
         elif action == "reset":
-            message += f"reset his position and balance."
-        
+            message += "reset his position and balance."
         elif action == "off_balance":
-            message += f"got off-balance and has yet to reset."
-
+            message += "got off-balance and has yet to reset."
         elif action == "added_to_battle":
-            message += f"was added to the battle."
-
+            message += "was added to the battle."
         elif action == "battle_end":
             message = f"Battle ended after {timestamp}ms."
-
-        message += f" [{status}]"
+        message += f" [{log['status']}]"
         return message
-    
+
     def message_for_pending_event(self, log):
         timestamp = log["timestamp"]
-        timeend = log["timeend"]
         combatant = log["combatant"]
-        target = log["target"]
         action = log["action"]
-        result = log["result"]
-        distance = log["distance"]
-        status = log["status"]
-        damage = log.get("damage", None)
+        timeend = log["timeend"]
 
         message = f"[{timestamp}ms] {combatant['name']} "
-        
         if action == "try_attack":
             message += f"is attempting an attack which will be released/stopped in {timeend}ms."
-
-        elif action == "release_attack":                    
+        elif action == "release_attack":
             message += f"is releasing an attack which will land in {timeend}ms."
-            
         elif action == "stop_attack":
             message += f"is stopping an attack which will be completed in {timeend}ms."
-
         elif action == "move_forward":
             message += f"is attempting to move forward which will be completed in {timeend}ms."
-
         elif action == "move_backward":
             message += f"is attempting to move backward which will be completed in {timeend}ms."
-
         elif action == "recover":
             message += f"is attempting to recover stamina which will be completed in {timeend}ms."
-
         elif action == "try_block":
             message += f"decided to block attacks starting {timeend}ms."
-
         elif action == "try_evade":
             message += f"started an evasive stance which will evade attacks in {timeend}ms."
-
         elif action == "blocking":
-            message += f"is blocking."
-
+            message += "is blocking."
         elif action == "keep_blocking":
-            message += f"decided to keep blocking."
-
-        # elif action == "evading":
-        #     message += f"stopped evading."
-
+            message += "decided to keep blocking."
         elif action == "turn_around":
-            message += f"is going to turn around."
-
+            message += "is going to turn around."
         elif action == "idle":
-            message += f"is idling."
-
+            message += "is idling."
         elif action == "reset":
-            message += f"is resetting his position and balance."
-        
+            message += "is resetting his position and balance."
         elif action == "off_balance":
-            message += f"is off-balance"
-        
-        message += f" [{status}]"
+            message += "is off-balance"
+        message += f" [{log['status']}]"
         return message
 
-            
+    # BATTLE CONTROL
     def is_battle_over(self):
-        """
-        Check if the battle is over.
-        """
         if self.timer >= self.duration:
             return True
-
         active_combatants = [c for c in self.combatants if not c.is_defeated()]
         return len(active_combatants) <= 1
-    

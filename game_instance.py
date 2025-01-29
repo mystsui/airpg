@@ -53,7 +53,7 @@ battle.add_combatant(combatant_a)
 battle.add_combatant(combatant_b)
 
 # Initialize opponent data
-assumed_opponent_stats = Combatant(
+assumed_a = Combatant(
     name="Unknown", 
     health=100, #primarily person-based (Endurance)
     stamina=150, #primarily person-based (Reflexes)
@@ -80,8 +80,35 @@ assumed_opponent_stats = Combatant(
     facing="right"
 )
 
-battle.get_opponent_data(combatant_a, assumed_opponent_stats)
-battle.get_opponent_data(combatant_b, assumed_opponent_stats)
+assumed_b = Combatant(
+    name="Unknown", 
+    health=100, #primarily person-based (Endurance)
+    stamina=150, #primarily person-based (Reflexes)
+    # energy=0, #primarily person-based (Synapse) affected by accessories
+    accuracy=70, #primarily person-based (Precision) affected by weapon
+    #breakpoint_probability=0, #primarily person-based (Entropy) affected by weapon
+    stamina_recovery=15, #person-based (Reflexes)
+    #speed=0, #primarily person-based (Reflexes) affected by weight
+    perception=0, #person-based (chance/rate of taking notice of the opponent's action)
+    stealth=0, #primarily person-based (chance/rate of hiding an action)
+
+    #gear_capacity (not for battles, just needed for equipping gears) (Synapse) (only for cyberpunk)
+    #breakpoint_multiplier=0, #gear-based
+    #armor=0, #primarily gear-based
+    #armor_penetration=0, #gear-based (secondary precision)
+    #weight=0, #gear-based                        
+    attack_power=15, #gear-based
+    blocking_power=5, #gear-based (secondary endurance)
+    evading_ability=10, #(not needed currently since evade times are uniform)
+    mobility=50, #primarily gear-based (countered by weight)
+    range_a=0,
+    range_b=100,
+    position="right",
+    facing="left"
+)
+
+battle.get_opponent_data(combatant_a, assumed_b)
+battle.get_opponent_data(combatant_b, assumed_a)
 
 # Initial action decisions
 # combatant_a.decide_action(timer=0, event_counter=0, distance=200, opponent=combatant_b)
