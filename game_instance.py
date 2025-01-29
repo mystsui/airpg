@@ -54,8 +54,8 @@ battle.add_combatant(combatant_b)
 
 # Initialize opponent data
 assumed_a = Combatant(
-    name="Unknown", 
-    health=100, #primarily person-based (Endurance)
+    name="A", 
+    health=500, #primarily person-based (Endurance)
     stamina=150, #primarily person-based (Reflexes)
     # energy=0, #primarily person-based (Synapse) affected by accessories
     accuracy=70, #primarily person-based (Precision) affected by weapon
@@ -81,8 +81,8 @@ assumed_a = Combatant(
 )
 
 assumed_b = Combatant(
-    name="Unknown", 
-    health=100, #primarily person-based (Endurance)
+    name="B", 
+    health=500, #primarily person-based (Endurance)
     stamina=150, #primarily person-based (Reflexes)
     # energy=0, #primarily person-based (Synapse) affected by accessories
     accuracy=70, #primarily person-based (Precision) affected by weapon

@@ -83,6 +83,7 @@ class Combatant:
             action = self.create_action("idle", timer)
         
         self.action = action
+        self.deduct_stamina(action["type"])
         log = self.decision_applied_log(timer, event_counter, distance)
         return log
 
@@ -105,6 +106,7 @@ class Combatant:
             action = self.create_action("idle", timer)
         
         self.action = action
+        self.deduct_stamina(action["type"])
         log = self.decision_applied_log(timer, event_counter, distance)
         return log
 
@@ -115,6 +117,10 @@ class Combatant:
         self.action = self.create_action(action_type, timer)
         log = self.decision_applied_log(timer, event_counter + 1, distance)
         return log
+    
+    def deduct_stamina(self, action_type):
+        """Deduct stamina based on the action type."""
+        self.stamina -= ACTIONS[action_type]["stamina_cost"]
 
     def decision_applied_log(self, timer, event_counter, distance):
         """

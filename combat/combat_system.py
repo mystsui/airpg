@@ -96,7 +96,6 @@ class CombatSystem:
     # GENERIC actions processing
     def process_action(self, combatant, event, action_key, targeted=False):
         event['status'] = "completed"
-        combatant.stamina -= ACTIONS[action_key]["stamina_cost"]
         self.processed_action_log(combatant, event, targeted)
         decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
         self.events.append(decision)
@@ -151,18 +150,17 @@ class CombatSystem:
     # ATTACK actions processing
     def process_try_attack(self, combatant, event):
         event['status'] = "completed"
-        combatant.stamina -= ACTIONS["try_attack"]["stamina_cost"]
         self.processed_action_log(combatant, event, targeted=False)
         decision = combatant.decide_attack_action(self.timer, self.event_counter, self.distance)
         self.events.append(decision)
 
     def process_release_attack(self, combatant, event):
-        target = self.find_target(combatant)
+        target = combatant.opponent
         event['status'] = "completed"
         event['damage'] = 0
-        combatant.stamina -= ACTIONS["release_attack"]["stamina_cost"]
         if not combatant.is_within_range(self.distance):
             event['result'] = "missed"
+            self.processed_action_log(combatant, event, targeted=True)
             self.events.append(combatant.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
         else:
             self.handle_attack_result(combatant, target, event)
@@ -205,7 +203,6 @@ class CombatSystem:
 
     # LOGGING
     def processed_action_log(self, combatant, event, targeted=False):
-        target = event.get('target') if targeted else None
         self.log_event(
             timestamp=self.timer,
             event_number=self.event_counter + 1,
@@ -214,7 +211,7 @@ class CombatSystem:
             action=event['type'],
             distance=self.distance,
             status=event['status'],
-            target=target,
+            target=combatant.opponent if targeted else None,
             result=event.get('result'),
             damage=event.get('damage')
         )
