@@ -3,7 +3,7 @@ from combat.combatant import Combatant
 import time
 
 # Initialize battle
-battle = CombatSystem(duration=1000, distance=10)  # 10 seconds
+battle = CombatSystem(duration=10000, distance=10)  # 10 seconds
 
 # Create combatants
 combatant_a = Combatant(name="A", 
@@ -77,7 +77,8 @@ assumed_a = Combatant(
     range_a=0,
     range_b=100,
     position="left",
-    facing="right"
+    facing="right",
+    action=None,
 )
 
 assumed_b = Combatant(
@@ -104,7 +105,8 @@ assumed_b = Combatant(
     range_a=0,
     range_b=100,
     position="right",
-    facing="left"
+    facing="left",
+    action=None
 )
 
 battle.get_opponent_data(combatant_a, assumed_b)

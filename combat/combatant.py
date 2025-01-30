@@ -148,11 +148,11 @@ class Combatant:
         }
         return log
 
-    def update_opponent_action(self, action):
+    def update_combatant_perception(self, opponent_action):
         """
         Update on the combatant's perception the opponent's current action.
         """
-        self.opponent["action"] = action
+        self.opponent["action"] = opponent_action
 
     def update_opponent_data(self, stat, value):
         """

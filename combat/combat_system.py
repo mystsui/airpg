@@ -99,6 +99,11 @@ class CombatSystem:
         self.processed_action_log(combatant, event, targeted)
         decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
         self.events.append(decision)
+        self.update_opponent_perception(combatant)
+        
+    def apply_action(self, combatant, action_type):
+        self.events.append(combatant.apply_action_state(action_type, self.timer, self.event_counter, self.distance))
+        self.update_opponent_perception(combatant)
 
     # NEUTRAL actions processing
     def process_idle(self, combatant, event):
@@ -130,19 +135,19 @@ class CombatSystem:
     # DEFENSE actions processing
     def process_try_block(self, combatant, event):
         self.process_action(combatant, event, "try_block")
-        self.events.append(combatant.apply_action_state("blocking", self.timer, self.event_counter, self.distance))
-
+        self.apply_action(combatant, "blocking")
+        
     def process_blocking(self, combatant, event):
         self.process_action(combatant, event, "blocking")
 
     def process_keep_blocking(self, combatant, event):
         self.process_action(combatant, event, "keep_blocking")
-        self.events.append(combatant.apply_action_state("blocking", self.timer, self.event_counter, self.distance))
-
+        self.apply_action(combatant, "blocking")
+        
     # EVASION actions processing
     def process_try_evade(self, combatant, event):
         self.process_action(combatant, event, "try_evade")
-        self.events.append(combatant.apply_action_state("evading", self.timer, self.event_counter, self.distance))
+        self.apply_action(combatant, "evading")
 
     def process_evading(self, combatant, event):
         self.process_action(combatant, event, "evading")
@@ -200,6 +205,11 @@ class CombatSystem:
 
     def process_stop_attack(self, combatant, event):
         self.process_action(combatant, event, "stop_attack")
+        
+    # OPPONENT PERCEPTION
+    def update_opponent_perception(self, combatant):
+        opponent = combatant.opponent
+        opponent.update_combatant_perception(combatant.action)
 
     # LOGGING
     def processed_action_log(self, combatant, event, targeted=False):
