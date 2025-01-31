@@ -208,7 +208,7 @@ class CombatSystem:
         
     # OPPONENT PERCEPTION
     def update_opponent_perception(self, combatant):
-        opponent = combatant.opponent
+        opponent = self.find_target(combatant)
         opponent.update_combatant_perception(combatant.action)
 
     # LOGGING

@@ -152,7 +152,7 @@ class Combatant:
         """
         Update on the combatant's perception the opponent's current action.
         """
-        self.opponent["action"] = opponent_action
+        self.opponent.action = opponent_action
 
     def update_opponent_data(self, stat, value):
         """
