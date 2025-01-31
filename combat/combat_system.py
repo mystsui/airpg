@@ -17,7 +17,6 @@ class CombatSystem:
     def add_combatant(self, combatant):
         combatant.team = "challenger" if len(self.combatants) == 0 else "defender"
         self.combatants.append(combatant)
-        print(f"Added {combatant} to the team {combatant.team}")
 
     # Start the battle
     def get_opponent_data(self, combatant, assumed_opponent):
@@ -25,6 +24,7 @@ class CombatSystem:
 
     # Determine the next event according to the time and priority
     def determine_next_event(self):
+        print(f"Current time: {self.timer}")
         combatants_actions = [c.action for c in self.combatants if c.action]
         self.event_counter += 1
 
@@ -66,6 +66,7 @@ class CombatSystem:
         ))
 
         self.next_event = combatants_actions[0] if combatants_actions else None
+        print(f"Next event: {self.next_event} ({self.next_event['time']}ms)")
 
     # Update the battle state
     def update(self):
@@ -125,8 +126,10 @@ class CombatSystem:
         combatant.facing = "right" if combatant.facing == "left" else "left"
 
     def process_move_forward(self, combatant, event):
+        print(f"Distance before: {self.distance}")
         self.process_action(combatant, event, "move_forward")
         self.distance = max(0, self.distance - combatant.mobility)
+        print(f"Distance after: {self.distance}")
 
     def process_move_backward(self, combatant, event):
         self.process_action(combatant, event, "move_backward")

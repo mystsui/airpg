@@ -36,12 +36,11 @@ class Combatant:
         self.perception = perception
         self.stealth = stealth
         self.stamina_recovery = stamina_recovery # stamina recovery rate
-        self.action = {"type": "idle", "combatant": self, "time": ACTIONS["idle"]["time"], "status": "pending", "target": None}
+        # self.action = {"type": "idle", "combatant": self, "time": ACTIONS["idle"]["time"], "status": "pending", "target": None}
+        self.action = None # current action
         self.position = position # current position
         self.facing = facing # current facing
         self.opponent = opponent
-
-        print(f"{self.name} has been initialized with the position: {self.position} and facing: {self.facing}")
 
     def create_action(self, action_type, timer, target=None):
         """Create standardized action dictionary."""
@@ -177,3 +176,18 @@ class Combatant:
         Check if the combatant is facing the opponent.
         """
         return self.facing == opponent.position
+    
+# FOR TESTING PURPOSES
+# combatant.py (add to bottom)
+class TestCombatant(Combatant):
+    __test__ = False  # Add this line
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.forced_actions = []  # Queue of actions to force
+
+    def force_action(self, action_type, timer=0, event_counter=0, distance=0):
+        """Force a specific action to occur at a given time."""
+        action = self.create_action(action_type, timer)
+        self.action = action
+        self.deduct_stamina(action_type)
+        return self.decision_applied_log(timer, event_counter, distance)
