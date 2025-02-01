@@ -37,14 +37,13 @@ class CombatSystem:
 
     # Determine the next event according to the time and priority
     def determine_next_event(self):
-        print(f"Current time: {self.timer}")
         combatants_actions = [c.action for c in self.combatants if c.action]
         self.event_counter += 1
 
         if not combatants_actions:
             self.next_event = None
             print("No valid combatant actions found.")
-            return
+            raise ValueError("No valid combatant actions found.")
 
         status_priority = {'completed': 0, 'pending': 1}
         action_priority = {
@@ -79,7 +78,7 @@ class CombatSystem:
         ))
 
         self.next_event = combatants_actions[0] if combatants_actions else None
-        print(f"Next event: {self.next_event} ({self.next_event['time']}ms)")
+        # print(f"Next event: {self.next_event} ({self.next_event['time']}ms) with #{self.event_counter} by {self.next_event['combatant'].name}")
 
     # Update the battle state
     def update(self):
@@ -126,9 +125,10 @@ class CombatSystem:
     def process_reset(self, combatant, event):
         self.process_action(combatant, event, "reset")
 
-    def process_recovery(self, combatant, event):
-        self.process_action(combatant, event, "recover")
+    def process_recover(self, combatant, event):
         combatant.stamina = min(combatant.max_stamina, combatant.stamina + combatant.stamina_recovery)
+        print(f"Recovered stamina: {combatant.stamina}/{combatant.max_stamina}")
+        self.process_action(combatant, event, "recover")
 
     def process_off_balance(self, combatant, event):
         self.process_action(combatant, event, "off_balance")
