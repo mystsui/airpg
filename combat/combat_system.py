@@ -4,19 +4,32 @@ from combat.lib.actions_library import ACTIONS
 
 class CombatSystem:
     # Initialize the combat system
-    def __init__(self, duration, distance):
+    def __init__(self, duration, distance, max_distance):
         self.timer = 0
         self.duration = duration
         self.combatants = []
         self.distance = distance
+        self.max_distance = max_distance
         self.events = []
         self.next_event = None
         self.event_counter = 0
 
     # Add a combatant to the battle
     def add_combatant(self, combatant):
-        combatant.team = "challenger" if len(self.combatants) == 0 else "defender"
-        self.combatants.append(combatant)
+        if len(self.combatants) >= 2:
+            raise ValueError("Battle is full.")
+        
+        if not combatant:
+            raise ValueError("Invalid combatant.")
+        else:         
+            combatant.team = "challenger" if len(self.combatants) == 0 else "defender"
+            if len(self.combatants) == 0:
+                combatant.team = "challenger"
+            else:
+                combatant.team = "defender"
+                if self.combatants[0].combatant_id == combatant.combatant_id:
+                    raise ValueError("Combatant already added to the battle.")
+            self.combatants.append(combatant)
 
     # Start the battle
     def get_opponent_data(self, combatant, assumed_opponent):
@@ -133,7 +146,7 @@ class CombatSystem:
 
     def process_move_backward(self, combatant, event):
         self.process_action(combatant, event, "move_backward")
-        self.distance = min(600, self.distance + combatant.mobility)
+        self.distance = min(self.max_distance, self.distance + combatant.mobility)
 
     # DEFENSE actions processing
     def process_try_block(self, combatant, event):

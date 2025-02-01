@@ -2,7 +2,8 @@ from combat.lib.actions_library import ACTIONS
 
 class Combatant:
     def __init__(
-        self, 
+        self,
+        combatant_id, 
         name, 
         health, 
         stamina, 
@@ -22,6 +23,7 @@ class Combatant:
         """
         Initialize a combatant.
         """
+        self.combatant_id = combatant_id
         self.name = name # name of the combatant
         self.health = health # current health
         self.stamina = stamina # current stamina
