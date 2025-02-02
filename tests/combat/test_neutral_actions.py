@@ -123,6 +123,39 @@ def test_recover(attacker, defender):
     assert attacker.action["status"] == "pending", "Action status should be pending"
     assert attacker.action["type"] == "idle", "Action type should be idle"
     
+def test_off_balance(attacker, defender):
+    battle = init_battle(attacker, defender, duration=1000, distance=0, max_distance=100)
+    
+    # Force off_balance action
+    attacker.force_action("off_balance", 0, battle.event_counter, battle.distance)    
+    process_action(battle)
+
+    # Check timer after off_balance action
+    assert battle.timer == 800, "Timer should be 800"
+
+    # Check combatant state after off_balance
+    assert attacker.action["status"] == "pending", "Action status should be pending"
+    assert attacker.action["type"] == "reset", "Next action should be reset"
+
+    # Process the chained reset action
+    process_action(battle)
+    
+    # Check timer after reset
+    assert battle.timer == 1800, "Timer should be 1800"
+    
+    # Check next state
+    assert attacker.action["status"] == "pending", "Action status should be pending" 
+    assert attacker.action["type"] == "idle", "Action type should be idle"
+    
+    process_action(battle)
+    
+    # Check timer after idle
+    assert battle.timer == 1810, "Timer should be 1810"
+    
+    # Check final state
+    assert attacker.action["status"] == "pending", "Action status should be pending"
+    assert attacker.action["type"] != "idle", "Action type should not be idle"
+    
 # Helpers    
 def init_battle(attacker, defender, duration, distance, max_distance):
     battle = CombatSystem(duration=duration, distance=distance, max_distance=max_distance)
