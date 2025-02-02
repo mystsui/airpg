@@ -110,9 +110,12 @@ class CombatSystem:
     def process_action(self, combatant, event, action_key, targeted=False):
         event['status'] = "completed"
         self.processed_action_log(combatant, event, targeted)
-        decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
-        self.events.append(decision)
-        self.update_opponent_perception(combatant)
+        if action_key == "idle":
+            decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
+            self.events.append(decision)
+            self.update_opponent_perception(combatant)
+        else:
+            self.apply_action(combatant, "idle")
         
     def apply_action(self, combatant, action_type):
         self.events.append(combatant.apply_action_state(action_type, self.timer, self.event_counter, self.distance))
@@ -127,7 +130,6 @@ class CombatSystem:
 
     def process_recover(self, combatant, event):
         combatant.stamina = min(combatant.max_stamina, combatant.stamina + combatant.stamina_recovery)
-        print(f"Recovered stamina: {combatant.stamina}/{combatant.max_stamina}")
         self.process_action(combatant, event, "recover")
 
     def process_off_balance(self, combatant, event):

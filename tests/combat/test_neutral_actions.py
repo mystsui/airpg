@@ -59,10 +59,11 @@ def test_idle(attacker, defender):
     process_action(battle)
 
     # Check timer after idle action
-    assert battle.timer == 100, "Timer should be 100"
+    assert battle.timer == 10, "Timer should be 10"
 
     # Check if the combatant has already decided on the next action
     assert attacker.action["status"] == "pending", "Action status should be pending"
+    assert attacker.action["type"] != "idle", "Action type should not be idle"
 
 def test_reset(attacker, defender):
     battle = init_battle(attacker, defender, duration=1000, distance=0, max_distance=100)
@@ -74,30 +75,53 @@ def test_reset(attacker, defender):
 
     # Check if the combatant has already decided on the next action
     assert attacker.action["status"] == "pending", "Action status should be pending"
+    assert attacker.action["type"] == "idle", "Action type should be idle"
 
 def test_recover(attacker, defender):
     battle = init_battle(attacker, defender, duration=1000, distance=0, max_distance=100)
     
-    print(f"\nInitial stamina: {attacker.stamina}")
+    # Set max stamina to 100
+    attacker.max_stamina = 100
     
+    # Reduce stamina to 50    
     attacker.stamina = 50
-    print(f"Reduced stamina: {attacker.stamina}")
     
-    attacker.force_action("recover", 0, battle.event_counter, battle.distance)
-    print(f"Before process_action stamina: {attacker.stamina}")
-    
+    # Force recover action
+    attacker.force_action("recover", 0, battle.event_counter, battle.distance)    
     process_action(battle)
-    print(f"After process_action stamina: {attacker.stamina}")
-    
-    # Add assertions
-    assert attacker.stamina == 60, f"Expected 60 stamina but got {attacker.stamina}"
+            
+    # Check stamina after recover action should be higher than before
+    assert attacker.stamina > 50, "Stamina should be higher than 50"
 
+    # Check accuracy of stamina recovered
+    assert attacker.stamina == 60, "Stamina should be 60"
 
     # Check timer after recover action
     assert battle.timer == 2000, "Timer should be 2000"
 
     # Check if the combatant has already decided on the next action
-    assert attacker.action["status"] == "pending", "Action status should be pending"  
+    assert attacker.action["status"] == "pending", "Action status should be pending"
+    assert attacker.action["type"] == "idle", "Action type should be idle"
+    
+    # Set stamina to almost full
+    attacker.stamina = attacker.max_stamina - 1  
+    
+    # Force recover action
+    attacker.force_action("recover", battle.timer, battle.event_counter, battle.distance)
+    process_action(battle)
+    
+    # Check stamina after recover action should be higher than before but not more than max stamina
+    assert attacker.stamina > attacker.max_stamina - 1 <= attacker.max_stamina, "Stamina should be higher than 99 but not more than 100"
+    
+    # Check accuracy of stamina recovered
+    assert attacker.stamina == 100, "Stamina should be 100"
+    
+    # Check timer after recover action
+    assert battle.timer == 4000, "Timer should be 2000"
+    
+    # Check if the combatant has already decided on the next action
+    assert attacker.action["status"] == "pending", "Action status should be pending"
+    assert attacker.action["type"] == "idle", "Action type should be idle"
     
 # Helpers    
 def init_battle(attacker, defender, duration, distance, max_distance):

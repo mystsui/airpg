@@ -1,7 +1,7 @@
 ACTIONS = {
     # NEUTRAL actions
     "idle": {
-        "time": 100,
+        "time": 10,
         "type": "idle",
         "stamina_cost": 0,
         "result": None,
