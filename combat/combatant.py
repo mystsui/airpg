@@ -110,6 +110,27 @@ class Combatant:
         self.deduct_stamina(action["type"])
         log = self.decision_applied_log(timer, event_counter, distance)
         return log
+    
+    def decide_block_action(self, timer, event_counter, distance):
+        """
+        Decide the next action based on the current state.
+        This should be a decision tree or a policy network. For now, we will use a simple rule-based system.
+
+        :param timer: Current battle time.
+        :param distance: Current distance between combatants.
+        :param opponent: Opponent combatant object (read-only for action type).
+        """
+        available_actions = self.get_available_actions()
+
+        if "keep_blocking" in available_actions:
+            action = self.create_action("keep_blocking", timer)
+        else:
+            action = self.create_action("idle", timer)
+        
+        self.action = action
+        self.deduct_stamina(action["type"])
+        log = self.decision_applied_log(timer, event_counter, distance)
+        return log
 
     def apply_action_state(self, action_type, timer, event_counter, distance):
         """

@@ -48,20 +48,20 @@ class CombatSystem:
         status_priority = {'completed': 0, 'pending': 1}
         action_priority = {
             # NEUTRAL actions
-            'idle': 1,
-            'reset': 2,
-            'recover': 3,
-            'off_balance': 4,
+            'idle': 1, # Final action in the chain
+            'reset': 2, # Pre-final action in the chain succeeded by idle
+            'recover': 3, # Pre-final action in the chain succeeded by idle
+            'off_balance': 4, # Succeeded by reset and then idle
 
             # MOVEMENT actions
-            'move_forward': 5,
-            'move_backward': 6,
-            'turn_around': 7,
+            'move_forward': 5, # Final action in the chain
+            'move_backward': 6, # Final action in the chain
+            'turn_around': 7, # Final action in the chain
 
             # DEFENSE actions
-            'try_block': 8,
-            'blocking': 9,
-            'keep_blocking': 10,
+            'try_block': 8, # Pre-final action in the chain succeeded by blocking
+            'blocking': 9, # Final action in the blocking action chain
+            'keep_blocking': 10, # Pre-final action in the chain succeeded by blocking
 
             # EVASION actions
             'try_evade': 11,
@@ -107,9 +107,15 @@ class CombatSystem:
         return None
     
     # GENERIC actions processing
-    def process_action(self, combatant, event, action_key, targeted=False):
+    
+    # Method to mark the action as completed and log the event
+    def mark_action_as_completed(self, combatant, event):
         event['status'] = "completed"
-        self.processed_action_log(combatant, event, targeted)
+        self.processed_action_log(combatant, event)
+        
+    # Method to process the actions which are final in the action chain
+    def process_action(self, combatant, event, action_key, targeted=False):
+        self.mark_action_as_completed(combatant, event)
         if action_key == "idle":
             decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
             self.events.append(decision)
@@ -117,6 +123,7 @@ class CombatSystem:
         else:
             self.apply_action(combatant, "idle")
         
+    # Method to automatically apply the action state to the combatant
     def apply_action(self, combatant, action_type):
         self.events.append(combatant.apply_action_state(action_type, self.timer, self.event_counter, self.distance))
         self.update_opponent_perception(combatant)
@@ -133,94 +140,164 @@ class CombatSystem:
         self.process_action(combatant, event, "recover")
 
     def process_off_balance(self, combatant, event):
-        self.process_action(combatant, event, "off_balance")
+        # Off-balance combatants will have to reset their position and balance
+        # Chain the reset action after the off-balance action
+        self.mark_action_as_completed(combatant, event)
+        self.apply_action(combatant, "reset")
     
     # MOVEMENT actions processing
     def process_turn_around(self, combatant, event):
-        self.process_action(combatant, event, "turn_around")
         combatant.facing = "right" if combatant.facing == "left" else "left"
+        self.process_action(combatant, event, "turn_around")
 
     def process_move_forward(self, combatant, event):
-        print(f"Distance before: {self.distance}")
-        self.process_action(combatant, event, "move_forward")
         self.distance = max(0, self.distance - combatant.mobility)
-        print(f"Distance after: {self.distance}")
+        self.process_action(combatant, event, "move_forward")
 
     def process_move_backward(self, combatant, event):
-        self.process_action(combatant, event, "move_backward")
         self.distance = min(self.max_distance, self.distance + combatant.mobility)
+        self.process_action(combatant, event, "move_backward")
 
     # DEFENSE actions processing
     def process_try_block(self, combatant, event):
-        self.process_action(combatant, event, "try_block")
+        # Mark the action as completed and apply the blocking action
+        # The try_block always resolve to a blocking action unless interrupted
+        # with an applied (forced) action
+        self.mark_action_as_completed(combatant, event)
         self.apply_action(combatant, "blocking")
         
     def process_blocking(self, combatant, event):
-        self.process_action(combatant, event, "blocking")
+        self.mark_action_as_completed(combatant, event)
+        
+        # Resolving blocking action will not go through the process_action method
+        # as it is not the final action in the blocking action chain for the combatant
+        # Instead, the combatant will have to decide whether to keep blocking or stop blocking
+        decision = combatant.decide_block_action(self.timer, self.event_counter, self.distance)
+        self.events.append(decision)
 
     def process_keep_blocking(self, combatant, event):
-        self.process_action(combatant, event, "keep_blocking")
+        # Mark the action as completed and apply the blocking action
+        self.mark_action_as_completed(combatant, event)
         self.apply_action(combatant, "blocking")
         
     # EVASION actions processing
     def process_try_evade(self, combatant, event):
-        self.process_action(combatant, event, "try_evade")
+        # Mark the action as completed and apply the evading action
+        # The try_evade always resolve to an evading action unless interrupted
+        # with an applied (forced) action
+        self.mark_action_as_completed(combatant, event)
         self.apply_action(combatant, "evading")
 
     def process_evading(self, combatant, event):
+        # Unlike blocking, evading is a one-time action and the combatant will
+        # not have the option to keep evading
         self.process_action(combatant, event, "evading")
 
     # ATTACK actions processing
     def process_try_attack(self, combatant, event):
-        event['status'] = "completed"
-        self.processed_action_log(combatant, event, targeted=False)
+        self.mark_action_as_completed(combatant, event)
+        
+        # Resolving try_attack action will not go through the process_action method
+        # as it is not the final action in the attack action chain for the combatant
+        # Instead, the combatant will have to decide whether to release or stop the attack
         decision = combatant.decide_attack_action(self.timer, self.event_counter, self.distance)
         self.events.append(decision)
 
+    # Method to process the release of an attack
     def process_release_attack(self, combatant, event):
-        target = combatant.opponent
-        event['status'] = "completed"
-        event['damage'] = 0
+        # Check if the target is within range of the attack
         if not combatant.is_within_range(self.distance):
+            # Mark the attack event as missed
             event['result'] = "missed"
-            self.processed_action_log(combatant, event, targeted=True)
-            self.events.append(combatant.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
+            # Mark the action as completed and log the event
+            self.mark_action_as_completed(combatant, event)
+            # Apply the reset action to the combatant as a consequence of the missed attack
+            self.apply_action(combatant, "off_balance")
         else:
-            self.handle_attack_result(combatant, target, event)
+            # Since the target is within range, the attack shall be resolved to by handle_attack
+            self.handle_attack_hit(combatant, event)
 
-    def handle_attack_result(self, combatant, target, event):
-        if target.action['type'] == "blocking":
+    def handle_attack_hit(self, combatant, event):
+        # Get the target for the attack
+        target = self.find_target(combatant)
+        # If the attack is BLOCKED
+        if target.action['type'] == "blocking": # Resolve in handle_blocking method
             self.handle_blocking(combatant, target, event)
-        elif target.action['type'] == "evading":
+        # If the attack is EVADED
+        elif target.action['type'] == "evading": # Resolve in handle_evading method
+            # Mark the attack event as evaded
             event['result'] = "evaded"
-            self.processed_action_log(combatant, event, targeted=True)
-            self.events.append(target.apply_action_state("reset", self.timer, self.event_counter, self.distance))
-            self.events.append(combatant.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
+            
+            #Mark the action as completed and log the event
+            self.mark_action_as_completed(combatant, event)
+            
+            # Apply the reset action to the target which opens up an opportunity for the target to perform
+            # a counter-attack or any other action first
+            self.apply_action(target, "reset")
+            
+            # Apply the off_balance action to the combatant as a consequence of the evaded attack
+            self.apply_action(combatant, "off_balance")
+        # If the attack HITS
         else:
+            # Calculate the damage dealt by the attack
             damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)
+            
+            # Apply the damage to the target
             target.health = max(0, target.health - damage)
+            
+            # Mark the attack event as hit
             event['result'] = "hit"
+            
+            # Set the damage dealt by the attack in the event
             event['damage'] = damage
-            self.processed_action_log(combatant, event, targeted=True)
-            self.events.append(target.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
-            self.events.append(combatant.apply_action_state("reset", self.timer, self.event_counter, self.distance))
-
+            
+            # Mark the action as completed and log the event
+            self.mark_action_as_completed(combatant, event)
+            
+            # Apply the reset action to the target as a consequence of being hit
+            self.apply_action(target, "reset")
+            
+            # Apply the reset action to the combatant
+            self.apply_action(combatant, "reset")
+    
+    # Method to handle the blocking action
     def handle_blocking(self, combatant, target, event):
+        # Mark the attack event as blocked
         event['result'] = "blocked"
+        
+        # Calculate the damage dealt by the attack
         damage = random.randint(combatant.attack_power * combatant.accuracy // 100, combatant.attack_power)
         event['damage'] = damage
+        
+        # If the damage is less than or equal to the target's blocking power
         if damage <= target.blocking_power:
-            self.events.append(combatant.apply_action_state("off_balance", self.timer, self.event_counter, self.distance))
-            self.events.append(target.apply_action_state("reset", self.timer, self.event_counter, self.distance))
+            
+            # Apply the reset action to the target
+            self.apply_action(target, "reset")
+            
+            # Apply the reset action to the combatant as a consequence of the blocked attack
+            self.apply_action(combatant, "off_balance")
+            
+        # If the damage is greater than the target's blocking power
         else:
-            self.events.append(combatant.apply_action_state("reset", self.timer, self.event_counter, self.distance))
-            self.events.append(target.apply_action_state("reset", self.timer, self.event_counter, self.distance))
+            # Mark the attack event as breached
             event['result'] = "breached"
-        breach_damage = damage - target.blocking_power
+            
+            # Apply the reset action to the target and the combatant
+            self.apply_action(target, "reset")
+            self.apply_action(combatant, "reset")
+            
+            # Calculate the breach damage and apply it to the target's health
+            breach_damage = damage - target.blocking_power
+            target.health = max(0, target.health - breach_damage)
+        
+        # Update the blocking power of the target after the attack was blocked
         target.blocking_power = max(0, target.blocking_power - damage)
-        target.health = max(0, target.health - breach_damage)
-        self.processed_action_log(combatant, event, targeted=True)
+        
+        # Mark the action as completed and log the event
+        self.mark_action_as_completed(combatant, event)
 
+    # Method to handle the stopping of an attack
     def process_stop_attack(self, combatant, event):
         self.process_action(combatant, event, "stop_attack")
         

@@ -53,7 +53,7 @@ ACTIONS = {
         "result": None,
     },
     "blocking": {
-        "time": 400,
+        "time": 100,
         "type": "blocking",
         "stamina_cost": 1,
         "result": None,
