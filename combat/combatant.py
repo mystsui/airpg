@@ -106,7 +106,7 @@ class Combatant:
         # else:
         #     action = self.create_action("idle", timer)
 
-        action = self.create_action("stop_attack", timer)
+        action = self.create_action("release_attack", timer)  # Changed to release_attack
         
         self.action = action
         self.deduct_stamina(action["type"])
@@ -148,27 +148,76 @@ class Combatant:
 
     def decision_applied_log(self, timer, event_counter, distance):
         """
-        Prepare the decision log for the combatant.
+        Prepare the decision log for the combatant with enhanced AI training data.
         """
+        # Get action history from previous events
+        actor_history = []
+        opponent_history = []
+        if hasattr(self, 'previous_actions'):
+            actor_history = self.previous_actions[-3:]  # Last 3 actions
+        if self.opponent and hasattr(self.opponent, 'previous_actions'):
+            opponent_history = self.opponent.previous_actions[-3:]  # Last 3 actions
+
+        # Update action history
+        if not hasattr(self, 'previous_actions'):
+            self.previous_actions = []
+        self.previous_actions.append(self.action["type"])
+
         log = {
+            "event_id": f"{timer}_{event_counter + 1}_{self.name}",
             "timestamp": timer,
-            "event_number": event_counter + 1,
+            "sequence_number": event_counter + 1,
             "timeend": self.action["time"],
-            "combatant": {
-                "name": self.name,
-                "health": self.health,
-                "stamina": self.stamina
-            } if self else None,
-            "action": self.action["type"],
-            "distance": distance,
-            "status": "pending",
-            "target": {
-                "name": self.opponent.name if self.opponent else None,
-                "health": self.opponent.health if self.opponent else None,
-                "stamina": self.opponent.stamina if self.opponent else None
+            "pre_state": {
+                "actor": {
+                    "name": self.name,
+                    "health_ratio": self.health / self.max_health,
+                    "stamina_ratio": self.stamina / self.max_stamina,
+                    "position": self.position,
+                    "facing": self.facing,
+                    "blocking_power": self.blocking_power,
+                    "current_action": self.action["type"]
+                },
+                "opponent": {
+                    "name": self.opponent.name if self.opponent else None,
+                    "health_ratio": self.opponent.health / self.opponent.max_health if self.opponent else None,
+                    "stamina_ratio": self.opponent.stamina / self.opponent.max_stamina if self.opponent else None,
+                    "position": self.opponent.position if self.opponent else None,
+                    "facing": self.opponent.facing if self.opponent else None,
+                    "blocking_power": self.opponent.blocking_power if self.opponent else None,
+                    "current_action": self.opponent.action["type"] if self.opponent and self.opponent.action else None
+                } if self.opponent else None,
+                "battle_context": {
+                    "distance": distance,
+                    "max_distance": self.opponent.range[1] if self.opponent else None,
+                    "time_remaining": None  # Combat system duration not accessible here
+                }
             },
-            "result": None,
-            "damage": None,
+            "action": {
+                "type": self.action["type"],
+                "timing": {
+                    "start": timer,
+                    "duration": self.action["time"] - timer,
+                    "end": self.action["time"]
+                },
+                "stamina_cost": ACTIONS[self.action["type"]]["stamina_cost"],
+                "in_range": self.is_within_range(distance)
+            },
+            "result": {
+                "status": "pending",
+                "outcome": None,
+                "damage_dealt": None,
+                "state_changes": {
+                    "actor_stamina_change": -ACTIONS[self.action["type"]]["stamina_cost"],
+                    "opponent_blocking_power_change": None,
+                    "opponent_health_change": None,
+                    "distance_change": self.mobility if self.action["type"] in ["move_forward", "move_backward"] else 0
+                }
+            },
+            "action_history": {
+                "actor_previous": actor_history,
+                "opponent_previous": opponent_history
+            }
         }
         return log
 
@@ -212,7 +261,79 @@ class TestCombatant(Combatant):
 
     def force_action(self, action_type, timer=0, event_counter=0, distance=0):
         """Force a specific action to occur at a given time."""
+        # Create the action before deducting stamina to capture pre-state accurately
         action = self.create_action(action_type, timer)
+        
+        # Get action history from previous events
+        actor_history = []
+        opponent_history = []
+        if hasattr(self, 'previous_actions'):
+            actor_history = self.previous_actions[-3:]  # Last 3 actions
+        if self.opponent and hasattr(self.opponent, 'previous_actions'):
+            opponent_history = self.opponent.previous_actions[-3:]  # Last 3 actions
+
+        # Create the log before deducting stamina to capture pre-state accurately
+        log = {
+            "event_id": f"{timer}_{event_counter + 1}_{self.name}",
+            "timestamp": timer,
+            "sequence_number": event_counter + 1,
+            "pre_state": {
+                "actor": {
+                    "name": self.name,
+                    "health_ratio": self.health / self.max_health,
+                    "stamina_ratio": self.stamina / self.max_stamina,
+                    "position": self.position,
+                    "facing": self.facing,
+                    "blocking_power": self.blocking_power,
+                    "current_action": action_type
+                },
+                "opponent": {
+                    "name": self.opponent.name if self.opponent else None,
+                    "health_ratio": self.opponent.health / self.opponent.max_health if self.opponent else None,
+                    "stamina_ratio": self.opponent.stamina / self.opponent.max_stamina if self.opponent else None,
+                    "position": self.opponent.position if self.opponent else None,
+                    "facing": self.opponent.facing if self.opponent else None,
+                    "blocking_power": self.opponent.blocking_power if self.opponent else None,
+                    "current_action": self.opponent.action["type"] if self.opponent and self.opponent.action else None
+                } if self.opponent else None,
+                "battle_context": {
+                    "distance": distance,
+                    "max_distance": self.opponent.range[1] if self.opponent else None,
+                    "time_remaining": None  # Combat system duration not accessible here
+                }
+            },
+            "action": {
+                "type": action_type,
+                "timing": {
+                    "start": timer,
+                    "duration": action["time"] - timer,
+                    "end": action["time"]
+                },
+                "stamina_cost": ACTIONS[action_type]["stamina_cost"],
+                "in_range": self.is_within_range(distance)
+            },
+            "result": {
+                "status": "pending",
+                "outcome": None,
+                "damage_dealt": None,
+                "state_changes": {
+                    "actor_stamina_change": -ACTIONS[action_type]["stamina_cost"],
+                    "opponent_blocking_power_change": None,
+                    "opponent_health_change": None,
+                    "distance_change": self.mobility if action_type in ["move_forward", "move_backward"] else 0
+                }
+            },
+            "action_history": {
+                "actor_previous": actor_history,
+                "opponent_previous": opponent_history
+            }
+        }
+        
+        # Update action history and state after creating the log
+        if not hasattr(self, 'previous_actions'):
+            self.previous_actions = []
+        self.previous_actions.append(action_type)
         self.action = action
         self.deduct_stamina(action_type)
-        return self.decision_applied_log(timer, event_counter, distance)
+        
+        return log
