@@ -50,7 +50,7 @@ def defender():
         stealth=0
     )
     
-def test_try_attack_hit(attacker, defender):
+def test_attack_hit(attacker, defender):
     battle = init_battle(attacker, defender, duration=1000, distance=0, max_distance=100)
     
     # Force try_attack action
@@ -65,56 +65,97 @@ def test_try_attack_hit(attacker, defender):
     # Get attacker stamina before releasing/stopping the attack
     attacker_stamina_before_deciding = attacker.stamina
 
-    # Process action
+    # Process try_attack
     process_action(battle)
-
-    # Check timer after try_attack action
-    assert battle.timer == ACTIONS["try_attack"]["time"], "Timer should be try_attack duration time"
-    timer_after_try_attack = battle.timer
+    assert battle.timer == ACTIONS["try_attack"]["time"], "Timer should be try_attack duration"
     
-    # Check if the combatant has already decided on the next action
-    chosen_action = attacker.action["type"]
-    assert attacker.action["status"] == "pending", "Action status should be pending"
-    assert chosen_action == "release_attack" or chosen_action == "stop_attack", "Action should be either release_attack or stop_attack"
-
-    # Get defender health before attack lands
-    defender_health_before = defender.health
-
-    # Get defender action before attack lands
-    defender_action_before = defender.action["type"]
+    # Process release_attack
+    process_action(battle)
+    assert battle.timer == ACTIONS["try_attack"]["time"] + ACTIONS["release_attack"]["time"], "Timer should include both actions"
     
-    if chosen_action == "release_attack":
-        process_action(battle)
-        assert battle.timer == ACTIONS["release_attack"]["time"] + timer_after_try_attack, "Timer should be current action plus release_attack duration time"
-        # Since the the opponent is within range, the attack should hit
-        # Also, since the opponent is not blocking, the attack should not be blocked
-        # Also, since the opponent is not evading, the attack should not be evaded
+    # Check damage calculation
+    expected_damage = random.randint(attacker.attack_power * attacker.accuracy // 100, attacker.attack_power)
+    assert defender.health == defender.max_health - expected_damage, "Defender health should decrease by attack damage"
+    
+    # Check final states
+    assert attacker.action["type"] == "reset", "Attacker should reset after hit"
+    assert defender.action["type"] == "reset", "Defender should reset after being hit"
 
-        # Get approximate damage
-        approx_damage = random.randint(attacker.attack_power * attacker.accuracy // 100, attacker.attack_power)
-        
-        # Get defender health after attack lands
-        defender_health_after = defender.health
-        assert (defender_health_before - defender_health_after) == pytest.approx(approx_damage, rel=0.1), "Defender health should decrease by the attack power"
+def test_attack_miss(attacker, defender):
+    # Set distance beyond attack range
+    battle = init_battle(attacker, defender, duration=1000, distance=100, max_distance=200)
+    
+    # Force try_attack action
+    attacker.force_action("try_attack", 0, battle.event_counter, battle.distance)
+    initial_health = defender.health
+    
+    # Process try_attack and release_attack
+    process_action(battle)
+    process_action(battle)
+    
+    # Check miss results
+    assert defender.health == initial_health, "No damage should be dealt on miss"
+    assert attacker.action["type"] == "off_balance", "Attacker should be off balance after miss"
 
-        # Check if the combatant has already been applied the appropriate automatic action
-        assert attacker.action["status"] == "pending", "Action status should be pending"
-        assert attacker.action["type"] == "reset", "Action should be reset"
-    else:
-        process_action(battle)
-        
-        # Check defender health
-        assert defender.health == defender_health_before, "Defender health should not change"
+def test_attack_blocked(attacker, defender):
+    battle = init_battle(attacker, defender, duration=1000, distance=0, max_distance=100)
+    
+    # Force defender to block
+    defender.force_action("blocking", 0, battle.event_counter, battle.distance)
+    process_action(battle)
+    
+    # Store initial values
+    initial_health = defender.health
+    initial_blocking = defender.blocking_power
+    
+    # Force attack
+    attacker.force_action("try_attack", battle.timer, battle.event_counter, battle.distance)
+    process_action(battle)
+    process_action(battle)
+    
+    # Check block results
+    assert defender.health == initial_health, "No damage should be dealt if blocked"
+    assert defender.blocking_power < initial_blocking, "Blocking power should decrease"
+    assert attacker.action["type"] == "off_balance", "Attacker should be off balance after blocked attack"
 
-        # Check defender action
-        assert defender.action["type"] == defender_action_before, "Defender action should not change"
+def test_attack_evaded(attacker, defender):
+    battle = init_battle(attacker, defender, duration=1000, distance=0, max_distance=100)
+    
+    # Force defender to evade
+    defender.force_action("evading", 0, battle.event_counter, battle.distance)
+    process_action(battle)
+    
+    # Store initial health
+    initial_health = defender.health
+    
+    # Force attack
+    attacker.force_action("try_attack", battle.timer, battle.event_counter, battle.distance)
+    process_action(battle)
+    process_action(battle)
+    
+    # Check evasion results
+    assert defender.health == initial_health, "No damage should be dealt if evaded"
+    assert attacker.action["type"] == "off_balance", "Attacker should be off balance after evaded attack"
+    assert defender.action["type"] == "reset", "Defender should reset after successful evasion"
 
-        # Check if the combatant has already been applied the appropriate automatic action
-        assert attacker.action["status"] == "pending", "Action status should be pending"
-        assert attacker.action["type"] == "idle", "Action should be idle"
-
-    # Check stamina change
-    assert attacker.stamina == attacker_stamina_before_deciding - ACTIONS[chosen_action]["stamina_cost"], "Stamina should decrease by the stop_attack stamina cost"
+def test_attack_stamina_chain(attacker, defender):
+    battle = init_battle(attacker, defender, duration=1000, distance=0, max_distance=100)
+    
+    # Set attacker's stamina to exactly enough for try_attack
+    attacker.stamina = ACTIONS["try_attack"]["stamina_cost"]
+    
+    # Force try_attack
+    attacker.force_action("try_attack", 0, battle.event_counter, battle.distance)
+    process_action(battle)
+    
+    # Verify stamina consumption
+    assert attacker.stamina == 0, "Stamina should be depleted after try_attack"
+    
+    # Process release_attack
+    process_action(battle)
+    
+    # Check if attack chain completed despite no stamina
+    assert attacker.action["type"] == "reset", "Attack chain should complete even with no stamina"
 
     
 # Helpers    
