@@ -94,6 +94,21 @@ def test_move_backward_max(attacker, defender):
     # Attacker's mobility is greater than the max_distance - last_known_distance, so it should be capped at 1,200.
     assert battle.distance == 1200, "Distance should increase by attacker mobility but not go above 1,200"
 
+def test_turn_around(attacker, defender):
+    # Initialize battle
+    battle = init_battle(attacker, defender, duration=10000, distance=100, max_distance=1200) 
+
+    attacker_position = attacker.position
+    attacker_facing = attacker.facing
+
+    # Force turn around action
+    attacker.force_action("turn_around", 0, battle.event_counter, battle.distance)
+    process_action(battle)
+
+    # Check if the attacker's position and facing have changed
+    assert attacker.position == attacker_position, "Position should not change"
+    assert attacker.facing != attacker_facing, "Facing should change"
+
     
 # Helpers    
 def init_battle(attacker, defender, duration, distance, max_distance):

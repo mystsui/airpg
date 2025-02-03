@@ -99,12 +99,14 @@ class Combatant:
         """
         available_actions = self.get_available_actions()
 
-        if self.is_within_range(distance) and "release_attack" in available_actions:
-            action = self.create_action("release_attack", timer)
-        elif "stop_attack" in available_actions:
-            action = self.create_action("stop_attack", timer)
-        else:
-            action = self.create_action("idle", timer)
+        # if self.is_within_range(distance) and "release_attack" in available_actions:
+        #     action = self.create_action("release_attack", timer)
+        # elif "stop_attack" in available_actions:
+        #     action = self.create_action("stop_attack", timer)
+        # else:
+        #     action = self.create_action("idle", timer)
+
+        action = self.create_action("stop_attack", timer)
         
         self.action = action
         self.deduct_stamina(action["type"])
