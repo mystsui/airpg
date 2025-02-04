@@ -1,0 +1,23 @@
+# Core Dependencies
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-xdist==3.3.1  # For parallel test execution
+pytest-benchmark==4.0.0  # For performance benchmarking
+psutil==5.9.6  # For system resource monitoring
+
+# Type Checking
+mypy==1.7.1
+types-psutil==5.9.5.17
+
+# Code Quality
+pylint==3.0.2
+black==23.11.0
+isort==5.12.0
+
+# Development Tools
+ipython==8.17.2  # For interactive debugging
+ipdb==0.13.13   # For enhanced debugging
+
+# Documentation
+mkdocs==1.5.3
+mkdocs-material==9.4.14
