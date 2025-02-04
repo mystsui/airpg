@@ -104,16 +104,109 @@ class CombatSystem:
         return None
     
     def mark_action_as_completed(self, combatant, event):
-        event['status'] = "completed"
-        self.processed_action_log(combatant, event)
+        # Create a new event with completed status
+        new_event = {
+            "type": event["type"],
+            "time": self.timer,  # Use current battle timer
+            "combatant": event["combatant"],
+            "status": "completed",
+            "target": event.get("target"),
+            "result": event.get("result")
+        }
+        self.processed_action_log(combatant, new_event)
         
     def process_action(self, combatant, event, action_key, targeted=False):
-        self.mark_action_as_completed(combatant, event)
+        # Get initial state before changes
+        initial_distance = self.distance
+        
+        # Process state changes first
+        if action_key == "move_forward":
+            self.distance = max(0, self.distance - combatant.mobility)
+        elif action_key == "move_backward":
+            self.distance = min(self.max_distance, self.distance + combatant.mobility)
+        
+        # Get target based on context
+        target = None
+        if targeted:
+            target = combatant.opponent
+        elif len(self.combatants) > 1:
+            target = self.find_target(combatant)
+            
+        # Get action history
+        actor_history = []
+        opponent_history = []
+        for prev_event in reversed(self.events[-5:]):  # Last 5 events
+            if 'pre_state' in prev_event:
+                if prev_event['pre_state']['actor']['name'] == combatant.name:
+                    actor_history.append(prev_event['action']['type'])
+                elif target and prev_event['pre_state']['actor']['name'] == target.name:
+                    opponent_history.append(prev_event['action']['type'])
+
+        # Create the log
+        log = {
+            "event_id": f"{self.timer}_{self.event_counter + 1}_{combatant.name}",
+            "timestamp": self.timer,
+            "sequence_number": self.event_counter + 1,
+            "pre_state": {
+                "actor": {
+                    "name": combatant.name,
+                    "health_ratio": combatant.health / combatant.max_health,
+                    "stamina_ratio": combatant.stamina / combatant.max_stamina,
+                    "position": combatant.position,
+                    "facing": combatant.facing,
+                    "blocking_power": combatant.blocking_power,
+                    "current_action": action_key
+                },
+                "opponent": {
+                    "name": target.name if target else None,
+                    "health_ratio": target.health / target.max_health if target else None,
+                    "stamina_ratio": target.stamina / target.max_stamina if target else None,
+                    "position": target.position if target else None,
+                    "facing": target.facing if target else None,
+                    "blocking_power": target.blocking_power if target else None,
+                    "current_action": target.action['type'] if target and target.action else None
+                } if target else None,
+                "battle_context": {
+                    "distance": self.distance,
+                    "max_distance": self.max_distance,
+                    "time_remaining": self.duration - self.timer
+                }
+            },
+            "action": {
+                "type": action_key,
+                "timing": {
+                    "start": event["time"],  # Use original event time
+                    "duration": 0,  # Instant action
+                    "end": event["time"]
+                },
+                "stamina_cost": ACTIONS[action_key]["stamina_cost"],
+                "in_range": combatant.is_within_range(self.distance)
+            },
+            "result": {
+                "status": "completed",
+                "outcome": event.get('result'),
+                "damage_dealt": event.get('damage'),
+                "state_changes": {
+                    "actor_stamina_change": -ACTIONS[action_key]["stamina_cost"],
+                    "opponent_blocking_power_change": -event.get('damage') if event.get('result') == "blocked" and event.get('damage') is not None else None,
+                    "opponent_health_change": -event.get('damage') if event.get('result') in ["hit", "breached"] and event.get('damage') is not None else None,
+                    "distance_change": self.distance - initial_distance if action_key in ["move_forward", "move_backward"] else 0
+                }
+            },
+            "action_history": {
+                "actor_previous": actor_history[-3:],  # Last 3 actions
+                "opponent_previous": opponent_history[-3:] if target else None
+            }
+        }
+        self.events.append(log)
+        
+        # Process the action
         if action_key == "idle":
             decision = combatant.decide_action(self.timer, self.event_counter, self.distance)
             self.events.append(decision)
             self.update_opponent_perception(combatant)
         else:
+            # Chain to idle
             self.apply_action(combatant, "idle")
         
     def apply_action(self, combatant, action_type):
@@ -270,44 +363,260 @@ class CombatSystem:
             opponent.update_combatant_perception(combatant.action)
 
     def processed_action_log(self, combatant, event, targeted=False):
-        self.log_event(
-            timestamp=self.timer,
-            event_number=self.event_counter + 1,
-            timeend=event['time'],
-            combatant=combatant,
-            action=event['type'],
-            distance=self.distance,
-            status=event['status'],
-            target=combatant.opponent if targeted else None,
-            result=event.get('result'),
-            damage=event.get('damage')
-        )
+        # Get target based on context
+        target = None
+        if targeted:
+            target = combatant.opponent
+        elif len(self.combatants) > 1:
+            target = self.find_target(combatant)
+            
+        # Get action history
+        actor_history = []
+        opponent_history = []
+        for prev_event in reversed(self.events[-5:]):  # Last 5 events
+            if 'pre_state' in prev_event:
+                if prev_event['pre_state']['actor']['name'] == combatant.name:
+                    actor_history.append(prev_event['action']['type'])
+                elif target and prev_event['pre_state']['actor']['name'] == target.name:
+                    opponent_history.append(prev_event['action']['type'])
+
+        # Create the log
+        log = {
+            "event_id": f"{self.timer}_{self.event_counter + 1}_{combatant.name}",
+            "timestamp": self.timer,
+            "sequence_number": self.event_counter + 1,
+            "pre_state": {
+                "actor": {
+                    "name": combatant.name,
+                    "health_ratio": combatant.health / combatant.max_health,
+                    "stamina_ratio": combatant.stamina / combatant.max_stamina,
+                    "position": combatant.position,
+                    "facing": combatant.facing,
+                    "blocking_power": combatant.blocking_power,
+                    "current_action": event['type']
+                },
+                "opponent": {
+                    "name": target.name if target else None,
+                    "health_ratio": target.health / target.max_health if target else None,
+                    "stamina_ratio": target.stamina / target.max_stamina if target else None,
+                    "position": target.position if target else None,
+                    "facing": target.facing if target else None,
+                    "blocking_power": target.blocking_power if target else None,
+                    "current_action": target.action['type'] if target and target.action else None
+                } if target else None,
+                "battle_context": {
+                    "distance": self.distance,
+                    "max_distance": self.max_distance,
+                    "time_remaining": self.duration - self.timer
+                }
+            },
+            "action": {
+                "type": event['type'],
+                "timing": {
+                    "start": self.timer,
+                    "duration": event['time'] - self.timer,
+                    "end": event['time']
+                },
+                "stamina_cost": ACTIONS[event['type']]["stamina_cost"],
+                "in_range": combatant.is_within_range(self.distance)
+            },
+            "result": {
+                "status": event['status'],
+                "outcome": event.get('result'),
+                "damage_dealt": event.get('damage'),
+                "state_changes": {
+                    "actor_stamina_change": -ACTIONS[event['type']]["stamina_cost"],
+                    "opponent_blocking_power_change": -event.get('damage') if event.get('result') == "blocked" and event.get('damage') is not None else None,
+                    "opponent_health_change": -event.get('damage') if event.get('result') in ["hit", "breached"] and event.get('damage') is not None else None,
+                    "distance_change": combatant.mobility if event['type'] in ["move_forward", "move_backward"] else 0
+                }
+            },
+            "action_history": {
+                "actor_previous": actor_history[-3:],  # Last 3 actions
+                "opponent_previous": opponent_history[-3:] if target else None
+            }
+        }
+        self.events.append(log)
 
     def log_event(self, event_number, timestamp, timeend, combatant, action, distance, status, target=None, result=None, damage=None):
         if not combatant:
             return
+            
+        # Get action history for both combatants
+        actor_history = []
+        opponent_history = []
+        for event in reversed(self.events[-5:]):  # Last 5 events
+            if 'pre_state' in event:
+                if event['pre_state']['actor']['name'] == combatant.name:
+                    actor_history.append(event['action']['type'])
+                elif target and event['pre_state']['actor']['name'] == target.name:
+                    opponent_history.append(event['action']['type'])
+
         log = {
+            "event_id": f"{timestamp}_{event_number}_{combatant.name}",
             "timestamp": timestamp,
-            "event_number": event_number,
-            "timeend": timeend,
-            "combatant": {
-                "name": combatant.name,
-                "health": combatant.health,
-                "stamina": combatant.stamina
+            "sequence_number": event_number,
+            "pre_state": {
+                "actor": {
+                    "name": combatant.name,
+                    "health_ratio": combatant.health / combatant.max_health,
+                    "stamina_ratio": combatant.stamina / combatant.max_stamina,
+                    "position": combatant.position,
+                    "facing": combatant.facing,
+                    "blocking_power": combatant.blocking_power,
+                    "current_action": action
+                },
+                "opponent": {
+                    "name": target.name if target else None,
+                    "health_ratio": target.health / target.max_health if target else None,
+                    "stamina_ratio": target.stamina / target.max_stamina if target else None,
+                    "position": target.position if target else None,
+                    "facing": target.facing if target else None,
+                    "blocking_power": target.blocking_power if target else None,
+                    "current_action": target.action['type'] if target and target.action else None
+                } if target else None,
+                "battle_context": {
+                    "distance": distance,
+                    "max_distance": self.max_distance,
+                    "time_remaining": self.duration - timestamp
+                }
             },
-            "action": action,
-            "distance": distance,
-            "status": status,
-            "target": {
-                "name": target.name if target else None,
-                "health": target.health if target else None,
-                "stamina": target.stamina if target else None
+            "action": {
+                "type": action,
+                "timing": {
+                    "start": timestamp,
+                    "duration": timeend - timestamp,
+                    "end": timeend
+                },
+                "stamina_cost": ACTIONS[action]["stamina_cost"],
+                "in_range": combatant.is_within_range(distance) if hasattr(combatant, 'is_within_range') else None
             },
-            "result": result,
-            "damage": damage
+            "result": {
+                "status": status,
+                "outcome": result,
+                "damage_dealt": damage,
+                "state_changes": {
+                    "actor_stamina_change": -ACTIONS[action]["stamina_cost"],
+                    "opponent_blocking_power_change": -damage if result == "blocked" and damage is not None else None,
+                    "opponent_health_change": -damage if result in ["hit", "breached"] and damage is not None else None,
+                    "distance_change": combatant.mobility if action in ["move_forward", "move_backward"] else 0
+                }
+            },
+            "action_history": {
+                "actor_previous": actor_history[-3:],  # Last 3 actions
+                "opponent_previous": opponent_history[-3:] if target else None
+            }
         }
         self.events.append(log)
 
+    # REPLAY
+    def replay_log(self):
+        print("\n--- Battle Replay ---\n")
+        sorted_events = sorted(self.events, key=lambda x: (
+            x['timestamp'], 1 if x['result']['status'] == 'pending' else 0, x['sequence_number']
+        ))
+        for log in sorted_events:
+            message = self.message_for_completed_event(log) if log["result"]["status"] == "completed" else self.message_for_pending_event(log)
+            if message:
+                print(message)
+        print("\n--- Replay Complete ---\n")
+
+    def message_for_completed_event(self, log):
+        timestamp = log["timestamp"]
+        actor = log["pre_state"]["actor"]
+        opponent = log["pre_state"]["opponent"]
+        action = log["action"]["type"]
+        result = log["result"]["outcome"]
+        distance = log["pre_state"]["battle_context"]["distance"]
+        damage = log["result"]["damage_dealt"]
+
+        message = f"[{timestamp}ms] {actor['name']} "
+        if action == "try_attack":
+            message += "attempted an attack."
+        elif action == "release_attack":
+            if result == "hit":
+                message += f"attacked {opponent['name']} for {damage} damage (remaining HP: {opponent['health_ratio'] * 100:.0f}%)."
+            elif result == "blocked":
+                message += f"attacked {opponent['name']}, but the attack was blocked."
+            elif result == "breached":
+                message += f"attacked {opponent['name']}, and breached his defenses (remaining HP: {opponent['health_ratio'] * 100:.0f}%)."
+            elif result == "evaded":
+                message += f"attacked {opponent['name']}, but the attack was evaded."
+            else:
+                message += "attempted an attack, but missed."
+        elif action == "stop_attack":
+            message += "stopped an attack."
+        elif action == "move_forward":
+            message += f"moved forward, reducing the distance to {distance}."
+        elif action == "move_backward":
+            message += f"moved backward, increasing the distance to {distance}."
+        elif action == "recover":
+            message += f"recovered stamina, now at {actor['stamina_ratio'] * 100:.0f}%."
+        elif action == "try_block":
+            message += "started a blocking stance."
+        elif action == "try_evade":
+            message += "started an evasive stance."
+        elif action == "blocking":
+            message += "stopped blocking."
+        elif action == "keep_blocking":
+            message += "kept blocking."
+        elif action == "evading":
+            message += "stopped evading."
+        elif action == "turn_around":
+            message += "turned around."
+        elif action == "idle":
+            message += f"took no action ({actor['stamina_ratio'] * 100:.0f}% stamina left)."
+        elif action == "reset":
+            message += "reset his position and balance."
+        elif action == "off_balance":
+            message += "got off-balance and has yet to reset."
+        elif action == "added_to_battle":
+            message += "was added to the battle."
+        elif action == "battle_end":
+            message = f"Battle ended after {timestamp}ms."
+        message += f" [{log['result']['status']}]"
+        return message
+
+    def message_for_pending_event(self, log):
+        timestamp = log["timestamp"]
+        actor = log["pre_state"]["actor"]
+        action = log["action"]["type"]
+        timeend = log["action"]["timing"]["end"]
+        duration = timeend - timestamp
+
+        message = f"[{timestamp}ms] {actor['name']} "
+        if action == "try_attack":
+            message += f"is attempting an attack which will be released/stopped in {duration}ms."
+        elif action == "release_attack":
+            message += f"is releasing an attack which will land in {duration}ms."
+        elif action == "stop_attack":
+            message += f"is stopping an attack which will be completed in {duration}ms."
+        elif action == "move_forward":
+            message += f"is attempting to move forward which will be completed in {duration}ms."
+        elif action == "move_backward":
+            message += f"is attempting to move backward which will be completed in {duration}ms."
+        elif action == "recover":
+            message += f"is attempting to recover stamina which will be completed in {duration}ms."
+        elif action == "try_block":
+            message += f"decided to block attacks starting in {duration}ms."
+        elif action == "try_evade":
+            message += f"started an evasive stance which will evade attacks in {duration}ms."
+        elif action == "blocking":
+            message += "is blocking."
+        elif action == "keep_blocking":
+            message += "decided to keep blocking."
+        elif action == "turn_around":
+            message += "is going to turn around."
+        elif action == "idle":
+            message += "is idling."
+        elif action == "reset":
+            message += "is resetting his position and balance."
+        elif action == "off_balance":
+            message += "is off-balance"
+        message += f" [{log['result']['status']}]"
+        return message
+
+    # BATTLE CONTROL
     def is_battle_over(self):
         if self.timer >= self.duration:
             return True
