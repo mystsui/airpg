@@ -108,41 +108,41 @@ class StateManagerAdapter(IStateManager):
     def _validate_combatant_transition(self, current: CombatantState, new: CombatantState) -> bool:
         """Validate transitions between combatant states."""
         # Validate health changes
-        if new.health > current.health:
+        new_health = new.stats.get("health", 100)
+        current_health = current.stats.get("health", 100)
+        if new_health > current_health:
             # Health can only increase through healing actions
-            if not (new.action and new.action.get("type") == "recover"):
+            new_action = new.stats.get("action")
+            if not (new_action and new_action.get("type") == "recover"):
                 return False
                 
         # Validate stamina changes
         if new.stamina > current.stamina:
             # Stamina can only increase through recovery
-            if not (new.action and new.action.get("type") == "recover"):
-                return False
-                
-        # Validate blocking power changes
-        if new.blocking_power > current.blocking_power:
-            # Blocking power can only increase through specific actions
-            if not (new.action and new.action.get("type") in ["reset", "recover"]):
+            new_action = new.stats.get("action")
+            if not (new_action and new_action.get("type") == "recover"):
                 return False
                 
         # Validate action transitions
-        if current.action and new.action:
-            current_type = current.action.get("type")
-            new_type = new.action.get("type")
-            current_state = current.action.get("state")
-            new_state = new.action.get("state")
+        current_action = current.stats.get("action")
+        new_action = new.stats.get("action")
+        if current_action and new_action:
+            current_type = current_action.get("type")
+            new_type = new_action.get("type")
+            current_state = current_action.get("state")
+            new_state = new_action.get("state")
             
             # Validate action state transitions
             if current_state and new_state:
                 if not self._validate_action_state_transition(
                     ActionState(current_state),
                     ActionState(new_state),
-                    current.action.get("commitment")
+                    current_action.get("commitment") if current_action else None
                 ):
                     return False
             
             # Use transition rules if available
-            if new_type in self._transition_rules:
+            if new_type and new_type in self._transition_rules:
                 return self._transition_rules[new_type](current, new)
                 
         return True
@@ -168,8 +168,9 @@ class StateManagerAdapter(IStateManager):
 
     def _validate_attack_transition(self, current: CombatantState, new: CombatantState) -> bool:
         """Validate attack-related transitions."""
-        current_type = current.action.get("type") if current.action else None
-        current_commitment = current.action.get("commitment") if current.action else None
+        current_action = current.stats.get("action")
+        current_type = current_action.get("type") if current_action else None
+        current_commitment = current_action.get("commitment") if current_action else None
         
         # Can't attack if fully committed to another action
         if current_commitment == ActionCommitment.FULL.value:
@@ -183,8 +184,9 @@ class StateManagerAdapter(IStateManager):
 
     def _validate_block_transition(self, current: CombatantState, new: CombatantState) -> bool:
         """Validate block-related transitions."""
-        current_type = current.action.get("type") if current.action else None
-        current_commitment = current.action.get("commitment") if current.action else None
+        current_action = current.stats.get("action")
+        current_type = current_action.get("type") if current_action else None
+        current_commitment = current_action.get("commitment") if current_action else None
         
         # Can't block if fully committed
         if current_commitment == ActionCommitment.FULL.value:
@@ -202,8 +204,9 @@ class StateManagerAdapter(IStateManager):
 
     def _validate_evade_transition(self, current: CombatantState, new: CombatantState) -> bool:
         """Validate evasion-related transitions."""
-        current_type = current.action.get("type") if current.action else None
-        current_commitment = current.action.get("commitment") if current.action else None
+        current_action = current.stats.get("action")
+        current_type = current_action.get("type") if current_action else None
+        current_commitment = current_action.get("commitment") if current_action else None
         
         # Can't evade if fully committed
         if current_commitment == ActionCommitment.FULL.value:
@@ -221,8 +224,9 @@ class StateManagerAdapter(IStateManager):
 
     def _validate_movement_transition(self, current: CombatantState, new: CombatantState) -> bool:
         """Validate movement-related transitions."""
-        current_type = current.action.get("type") if current.action else None
-        current_commitment = current.action.get("commitment") if current.action else None
+        current_action = current.stats.get("action")
+        current_type = current_action.get("type") if current_action else None
+        current_commitment = current_action.get("commitment") if current_action else None
         
         # Can't move if fully committed
         if current_commitment == ActionCommitment.FULL.value:

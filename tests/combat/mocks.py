@@ -1,12 +1,10 @@
 """
-Mock Objects
-
-This module provides mock implementations for testing.
+Mock implementations for testing.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Dict, List, Optional, Any
 from combat.lib.action_system import (
     ActionStateType,
     ActionVisibility,
@@ -19,6 +17,48 @@ from combat.lib.event_system import (
     EventImportance,
     EnhancedEvent
 )
+from combat.interfaces.timing import CombatTiming, ITimingManager
+
+
+class MockTimingManager:
+    """Mock implementation of ITimingManager."""
+    
+    def __init__(self):
+        self.timings: Dict[str, CombatTiming] = {}
+        self.remaining_times: Dict[str, float] = {}
+
+    def get_action_timing(self, action_id: str) -> Optional[CombatTiming]:
+        """Get timing information for an action."""
+        return self.timings.get(action_id)
+
+    def update_timing(self, action_id: str, timing: CombatTiming) -> None:
+        """Update timing information for an action."""
+        self.timings[action_id] = timing
+        self.remaining_times[action_id] = timing.total_time
+
+    def add_modifier(self, action_id: str, modifier_name: str, value: float) -> None:
+        """Add a named time modifier to an action."""
+        if action_id in self.timings:
+            self.timings[action_id].time_modifiers[modifier_name] = value
+            self.remaining_times[action_id] = self.timings[action_id].total_time
+
+    def remove_modifier(self, action_id: str, modifier_name: str) -> None:
+        """Remove a named time modifier from an action."""
+        if action_id in self.timings:
+            if modifier_name in self.timings[action_id].time_modifiers:
+                del self.timings[action_id].time_modifiers[modifier_name]
+                self.remaining_times[action_id] = self.timings[action_id].total_time
+
+    def clear_modifiers(self, action_id: str) -> None:
+        """Clear all time modifiers for an action."""
+        if action_id in self.timings:
+            self.timings[action_id].time_modifiers.clear()
+            self.remaining_times[action_id] = self.timings[action_id].total_time
+
+    def get_remaining_time(self, action_id: str) -> Optional[float]:
+        """Get remaining time for an action."""
+        return self.remaining_times.get(action_id)
+
 
 class MockEventDispatcher:
     """Mock event dispatcher for testing."""
@@ -55,6 +95,7 @@ class MockEventDispatcher:
     def clear(self) -> None:
         """Clear recorded events."""
         self.events.clear()
+
 
 class MockActionResolver:
     """Mock action resolver for testing."""
@@ -98,6 +139,7 @@ class MockActionResolver:
         self.resolved_actions.clear()
         self.results.clear()
 
+
 class MockStateManager:
     """Mock state manager for testing."""
     
@@ -127,6 +169,7 @@ class MockStateManager:
         """Clear all states."""
         self.states.clear()
         self.history.clear()
+
 
 class MockAwarenessSystem:
     """Mock awareness system for testing."""
@@ -175,6 +218,7 @@ class MockAwarenessSystem:
         self.awareness_states.clear()
         self.conditions = None
 
+
 class MockCombatSystem:
     """Mock combat system for testing."""
     
@@ -183,6 +227,7 @@ class MockCombatSystem:
         self.action_resolver = MockActionResolver()
         self.state_manager = MockStateManager()
         self.awareness_system = MockAwarenessSystem()
+        self.timing_manager = MockTimingManager()
         self.combatants = {}
         self.current_time = 0.0
         

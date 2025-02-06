@@ -9,7 +9,7 @@ import pytest
 from combat.adapters import ActionResolverAdapter, CombatantAdapter
 from combat.interfaces import Action, ActionResult
 from combat.lib.actions_library import ACTIONS
-from .test_combatant_adapter import create_test_combatant
+from tests.combat.test_combatant_adapter import create_test_combatant
 
 class TestActionResolverAdapter:
     """Test suite for ActionResolverAdapter class."""
@@ -36,19 +36,23 @@ class TestActionResolverAdapter:
         """Test that validate_action correctly validates actions."""
         # Valid action
         valid_action = Action(
-            type="try_attack",
-            time=100,
+            action_type="try_attack",
             stamina_cost=ACTIONS["try_attack"]["stamina_cost"],
-            source_id="1"
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Try to attack",
+            properties={}
         )
         assert resolver.validate(valid_action, attacker) is True
 
         # Invalid action type
         invalid_action = Action(
-            type="invalid_action",
-            time=100,
+            action_type="invalid_action",
             stamina_cost=0,
-            source_id="1"
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Invalid action",
+            properties={}
         )
         assert resolver.validate(invalid_action, attacker) is False
 
@@ -74,11 +78,15 @@ class TestActionResolverAdapter:
     def test_resolve_attack_hit(self, resolver, attacker, defender):
         """Test resolving a successful attack."""
         action = Action(
-            type="release_attack",
-            time=100,
+            action_type="release_attack",
             stamina_cost=0,
-            source_id=attacker.get_state().entity_id,
-            target_id=defender.get_state().entity_id
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Release attack",
+            properties={
+                "source_id": attacker.get_state().entity_id,
+                "target_id": defender.get_state().entity_id
+            }
         )
         
         result = resolver.resolve(action, attacker, defender)
@@ -98,11 +106,15 @@ class TestActionResolverAdapter:
         }
         
         action = Action(
-            type="release_attack",
-            time=100,
+            action_type="release_attack",
             stamina_cost=0,
-            source_id=attacker.get_state().entity_id,
-            target_id=defender.get_state().entity_id
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Release attack",
+            properties={
+                "source_id": attacker.get_state().entity_id,
+                "target_id": defender.get_state().entity_id
+            }
         )
         
         result = resolver.resolve(action, attacker, defender)
@@ -124,11 +136,15 @@ class TestActionResolverAdapter:
         }
         
         action = Action(
-            type="release_attack",
-            time=100,
+            action_type="release_attack",
             stamina_cost=0,
-            source_id=attacker.get_state().entity_id,
-            target_id=defender.get_state().entity_id
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Release attack",
+            properties={
+                "source_id": attacker.get_state().entity_id,
+                "target_id": defender.get_state().entity_id
+            }
         )
         
         result = resolver.resolve(action, attacker, defender)
@@ -141,10 +157,14 @@ class TestActionResolverAdapter:
         """Test resolving movement actions."""
         # Test move forward
         forward_action = Action(
-            type="move_forward",
-            time=100,
+            action_type="move_forward",
             stamina_cost=ACTIONS["move_forward"]["stamina_cost"],
-            source_id=attacker.get_state().entity_id
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Move forward",
+            properties={
+                "source_id": attacker.get_state().entity_id
+            }
         )
         
         result = resolver.resolve(forward_action, attacker, None)
@@ -156,10 +176,14 @@ class TestActionResolverAdapter:
 
         # Test move backward
         backward_action = Action(
-            type="move_backward",
-            time=100,
+            action_type="move_backward",
             stamina_cost=ACTIONS["move_backward"]["stamina_cost"],
-            source_id=attacker.get_state().entity_id
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Move backward",
+            properties={
+                "source_id": attacker.get_state().entity_id
+            }
         )
         
         result = resolver.resolve(backward_action, attacker, None)
@@ -173,10 +197,14 @@ class TestActionResolverAdapter:
         """Test resolving neutral actions."""
         # Test recover action
         recover_action = Action(
-            type="recover",
-            time=100,
+            action_type="recover",
             stamina_cost=ACTIONS["recover"]["stamina_cost"],
-            source_id=attacker.get_state().entity_id
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Recover stamina",
+            properties={
+                "source_id": attacker.get_state().entity_id
+            }
         )
         
         result = resolver.resolve(recover_action, attacker, None)
@@ -189,10 +217,14 @@ class TestActionResolverAdapter:
     def test_resolve_block(self, resolver, attacker):
         """Test resolving block actions."""
         block_action = Action(
-            type="blocking",
-            time=100,
+            action_type="blocking",
             stamina_cost=ACTIONS["blocking"]["stamina_cost"],
-            source_id=attacker.get_state().entity_id
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Block attacks",
+            properties={
+                "source_id": attacker.get_state().entity_id
+            }
         )
         
         result = resolver.resolve(block_action, attacker, None)
@@ -205,10 +237,14 @@ class TestActionResolverAdapter:
     def test_resolve_evade(self, resolver, attacker):
         """Test resolving evade actions."""
         evade_action = Action(
-            type="evading",
-            time=100,
+            action_type="evading",
             stamina_cost=ACTIONS["evading"]["stamina_cost"],
-            source_id=attacker.get_state().entity_id
+            time_cost=100,
+            speed_requirement=1.0,
+            description="Evade attacks",
+            properties={
+                "source_id": attacker.get_state().entity_id
+            }
         )
         
         result = resolver.resolve(evade_action, attacker, None)

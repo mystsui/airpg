@@ -6,48 +6,18 @@ phases, visibility, and commitment levels.
 """
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from typing import Dict, Optional, Any
 
-class ActionStateType(Enum):
-    """States an action can be in."""
-    FEINT = auto()    # Initial feint state
-    COMMIT = auto()   # Committed to action
-    RELEASE = auto()  # Action released
-    RECOVERY = auto() # Recovery phase
+from combat.interfaces import (
+    ActionState,
+    ActionStateType,
+    ActionVisibility,
+    ActionCommitment,
+    ActionPhase,
+    IActionSystem
+)
 
-class ActionVisibility(Enum):
-    """How visible an action is."""
-    TELEGRAPHED = auto()  # Clearly visible
-    HIDDEN = auto()       # Stealthy action
-
-class ActionCommitment(Enum):
-    """Level of commitment to an action."""
-    NONE = auto()     # No commitment
-    PARTIAL = auto()  # Partial commitment
-    FULL = auto()     # Full commitment
-
-class ActionPhase(Enum):
-    """Phases of action execution."""
-    STARTUP = auto()   # Initial startup
-    ACTIVE = auto()    # Active execution
-    RECOVERY = auto()  # Recovery period
-    COMPLETE = auto()  # Action completed
-
-@dataclass
-class ActionState:
-    """Current state of an action."""
-    action_type: str
-    state: ActionStateType
-    phase: ActionPhase
-    visibility: ActionVisibility
-    commitment: ActionCommitment
-    elapsed_time: float = 0.0
-    phase_time: float = 0.0
-    total_time: float = 0.0
-    modifiers: Dict[str, float] = field(default_factory=dict)
-
-class ActionSystem:
+class ActionSystem(IActionSystem):
     """Manages action execution and state transitions."""
     
     # Phase timing constants
@@ -68,6 +38,7 @@ class ActionSystem:
             ActionStateType.RELEASE: {ActionStateType.RECOVERY},
             ActionStateType.RECOVERY: set()  # No transitions from recovery
         }
+        self._actions: Dict[str, ActionState] = {}
         
     def validate_transition(self,
                           current: ActionStateType,
@@ -228,80 +199,46 @@ class ActionSystem:
         elif phase == ActionPhase.RECOVERY:
             return not commitment or commitment != ActionCommitment.FULL
         return False
-        
-    def start_action(self,
-                    action_type: str,
-                    visibility: ActionVisibility,
-                    commitment: ActionCommitment = ActionCommitment.NONE) -> ActionState:
-        """
-        Start a new action.
-        
-        Args:
-            action_type: Type of action
-            visibility: Action visibility
-            commitment: Action commitment level
-            
-        Returns:
-            Initial action state
-        """
-        return ActionState(
+
+    def create_action(self, action_type: str, source_id: str, target_id: Optional[str] = None) -> ActionState:
+        """Create a new action."""
+        action = ActionState(
+            action_id=f"{action_type}_{len(self._actions)}",
             action_type=action_type,
+            source_id=source_id,
+            target_id=target_id,
             state=ActionStateType.FEINT,
             phase=ActionPhase.STARTUP,
-            visibility=visibility,
-            commitment=commitment,
-            elapsed_time=0.0,
-            phase_time=0.0,
-            total_time=0.0
+            visibility=ActionVisibility.TELEGRAPHED,
+            commitment=ActionCommitment.NONE,
+            properties={}
         )
-        
-    def update_action(self,
-                     state: ActionState,
-                     delta_time: float) -> ActionState:
-        """
-        Update action state.
-        
-        Args:
-            state: Current action state
-            delta_time: Time elapsed
-            
-        Returns:
-            Updated action state
-        """
-        state.elapsed_time += delta_time
-        state.phase_time += delta_time
-        state.total_time += delta_time
-        
-        # Calculate phase durations
-        startup_time = self.calculate_phase_duration(
-            ActionPhase.STARTUP,
-            1.0
-        )
-        active_time = self.calculate_phase_duration(
-            ActionPhase.ACTIVE,
-            1.0
-        )
-        recovery_time = self.calculate_phase_duration(
-            ActionPhase.RECOVERY,
-            1.0
-        )
-        
-        # Update phase and state based on timing
-        if state.phase == ActionPhase.STARTUP:
-            if state.phase_time >= startup_time:
-                state.phase = ActionPhase.ACTIVE
-                state.state = ActionStateType.COMMIT
-                state.phase_time = 0.0
-                
-        elif state.phase == ActionPhase.ACTIVE:
-            if state.phase_time >= active_time:
-                state.phase = ActionPhase.RECOVERY
-                state.state = ActionStateType.RELEASE
-                state.phase_time = 0.0
-                
-        elif state.phase == ActionPhase.RECOVERY:
-            if state.phase_time >= recovery_time:
-                state.phase = ActionPhase.COMPLETE
-                state.state = ActionStateType.RECOVERY
-                
-        return state
+        self._actions[action.action_id] = action
+        return action
+
+    def get_action_state(self, action_id: str) -> Optional[ActionState]:
+        """Get the current state of an action."""
+        return self._actions.get(action_id)
+
+    def update_action_state(self, action_id: str, new_state: ActionState) -> None:
+        """Update the state of an action."""
+        if action_id not in self._actions:
+            raise ValueError(f"No action found with id {action_id}")
+        self._actions[action_id] = new_state
+
+    def validate_action(self, action: ActionState) -> bool:
+        """Validate if an action can be executed."""
+        current_state = self._actions.get(action.action_id)
+        if not current_state:
+            return True  # New actions are always valid
+        return self.validate_transition(current_state.state, action.state)
+
+    def cancel_action(self, action_id: str) -> bool:
+        """Attempt to cancel an action."""
+        action = self._actions.get(action_id)
+        if not action:
+            return False
+        if not self.can_cancel(action.commitment):
+            return False
+        del self._actions[action_id]
+        return True

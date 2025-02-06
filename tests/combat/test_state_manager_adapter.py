@@ -9,7 +9,7 @@ import pytest
 from combat.adapters import StateManagerAdapter
 from combat.interfaces import CombatantState, Action
 from combat.lib.actions_library import ACTIONS
-from .test_combatant_adapter import create_test_combatant
+from tests.combat.test_combatant_adapter import create_test_combatant
 
 class TestStateManagerAdapter:
     """Test suite for StateManagerAdapter class."""
@@ -24,15 +24,19 @@ class TestStateManagerAdapter:
         """Create a base combatant state for testing."""
         return CombatantState(
             entity_id="test_1",
-            health=100,
-            max_health=100,
             stamina=100,
-            max_stamina=100,
-            position="left",
-            facing="right",
-            blocking_power=30,
-            action=None,
-            team="challenger"
+            speed=1.0,
+            stealth=1.0,
+            position_x=0.0,
+            position_y=0.0,
+            stats={
+                "health": 100,
+                "max_health": 100,
+                "max_stamina": 100,
+                "blocking_power": 30,
+                "team": "challenger",
+                "facing": "right"
+            }
         )
 
     def test_get_state_nonexistent(self, manager):
@@ -51,7 +55,9 @@ class TestStateManagerAdapter:
         
         # Valid health reduction
         new_state = CombatantState(
-            **{**base_state.__dict__, "health": 80}
+            **{**base_state.__dict__, 
+               "stats": {**base_state.stats, "health": 80}
+            }
         )
         manager.update_state(base_state.entity_id, new_state)
         assert manager.get_state(base_state.entity_id).health == 80
@@ -62,7 +68,9 @@ class TestStateManagerAdapter:
         
         # Health increase without recovery action
         new_state = CombatantState(
-            **{**base_state.__dict__, "health": 120}
+            **{**base_state.__dict__,
+               "stats": {**base_state.stats, "health": 120}
+            }
         )
         with pytest.raises(Exception):
             manager.update_state(base_state.entity_id, new_state)
@@ -71,7 +79,10 @@ class TestStateManagerAdapter:
         """Test valid stamina recovery."""
         # Set initial low stamina
         initial_state = CombatantState(
-            **{**base_state.__dict__, "stamina": 50}
+            **{**base_state.__dict__, 
+               "stamina": 50,
+               "stats": {**base_state.stats}
+            }
         )
         manager.update_state(base_state.entity_id, initial_state)
         
@@ -79,7 +90,10 @@ class TestStateManagerAdapter:
         recovery_state = CombatantState(
             **{**initial_state.__dict__,
                "stamina": 60,
-               "action": {"type": "recover", "time": 100}
+               "stats": {
+                   **initial_state.stats,
+                   "current_action": {"type": "recover", "time": 100}
+               }
             }
         )
         manager.update_state(base_state.entity_id, recovery_state)
@@ -92,7 +106,10 @@ class TestStateManagerAdapter:
         # Can't attack while already attacking
         attacking_state = CombatantState(
             **{**base_state.__dict__,
-               "action": {"type": "try_attack", "time": 100}
+               "stats": {
+                   **base_state.stats,
+                   "current_action": {"type": "try_attack", "time": 100}
+               }
             }
         )
         manager.update_state(base_state.entity_id, attacking_state)
@@ -101,7 +118,10 @@ class TestStateManagerAdapter:
         with pytest.raises(Exception):
             new_attack_state = CombatantState(
                 **{**attacking_state.__dict__,
-                   "action": {"type": "try_attack", "time": 200}
+                   "stats": {
+                       **attacking_state.stats,
+                       "current_action": {"type": "try_attack", "time": 200}
+                   }
                 }
             )
             manager.update_state(base_state.entity_id, new_attack_state)
@@ -112,14 +132,20 @@ class TestStateManagerAdapter:
         
         # Can't block with insufficient stamina
         low_stamina_state = CombatantState(
-            **{**base_state.__dict__, "stamina": 0}
+            **{**base_state.__dict__, 
+               "stamina": 0,
+               "stats": {**base_state.stats}
+            }
         )
         manager.update_state(base_state.entity_id, low_stamina_state)
         
         with pytest.raises(Exception):
             blocking_state = CombatantState(
                 **{**low_stamina_state.__dict__,
-                   "action": {"type": "blocking", "time": 100}
+                   "stats": {
+                       **low_stamina_state.stats,
+                       "current_action": {"type": "blocking", "time": 100}
+                   }
                 }
             )
             manager.update_state(base_state.entity_id, blocking_state)
@@ -131,7 +157,10 @@ class TestStateManagerAdapter:
         # Can't move while blocking
         blocking_state = CombatantState(
             **{**base_state.__dict__,
-               "action": {"type": "blocking", "time": 100}
+               "stats": {
+                   **base_state.stats,
+                   "current_action": {"type": "blocking", "time": 100}
+               }
             }
         )
         manager.update_state(base_state.entity_id, blocking_state)
@@ -139,7 +168,10 @@ class TestStateManagerAdapter:
         with pytest.raises(Exception):
             movement_state = CombatantState(
                 **{**blocking_state.__dict__,
-                   "action": {"type": "move_forward", "time": 200}
+                   "stats": {
+                       **blocking_state.stats,
+                       "current_action": {"type": "move_forward", "time": 200}
+                   }
                 }
             )
             manager.update_state(base_state.entity_id, movement_state)
@@ -154,7 +186,9 @@ class TestStateManagerAdapter:
         for i in range(5):
             current_health -= 20
             state = CombatantState(
-                **{**base_state.__dict__, "health": current_health}
+                **{**base_state.__dict__,
+                   "stats": {**base_state.stats, "health": current_health}
+                }
             )
             states.append(state)
             manager.update_state(base_state.entity_id, state)
@@ -171,7 +205,9 @@ class TestStateManagerAdapter:
         
         # Create a new state
         new_state = CombatantState(
-            **{**base_state.__dict__, "health": 80}
+            **{**base_state.__dict__,
+               "stats": {**base_state.stats, "health": 80}
+            }
         )
         manager.update_state(base_state.entity_id, new_state)
         
@@ -187,7 +223,9 @@ class TestStateManagerAdapter:
         # Create some history
         for health in [80, 60, 40]:
             state = CombatantState(
-                **{**base_state.__dict__, "health": health}
+                **{**base_state.__dict__,
+                   "stats": {**base_state.stats, "health": health}
+                }
             )
             manager.update_state(base_state.entity_id, state)
             
@@ -202,10 +240,16 @@ class TestStateManagerAdapter:
         entity2_id = "entity2"
         
         state1 = CombatantState(
-            **{**base_state.__dict__, "entity_id": entity1_id}
+            **{**base_state.__dict__,
+               "entity_id": entity1_id,
+               "stats": {**base_state.stats}
+            }
         )
         state2 = CombatantState(
-            **{**base_state.__dict__, "entity_id": entity2_id}
+            **{**base_state.__dict__,
+               "entity_id": entity2_id,
+               "stats": {**base_state.stats}
+            }
         )
         
         # Update both entities
@@ -214,7 +258,9 @@ class TestStateManagerAdapter:
         
         # Modify one entity
         new_state1 = CombatantState(
-            **{**state1.__dict__, "health": 80}
+            **{**state1.__dict__,
+               "stats": {**state1.stats, "health": 80}
+            }
         )
         manager.update_state(entity1_id, new_state1)
         

@@ -152,15 +152,15 @@ def create_action(
     feint_cost = stamina_cost * 0.5 if props["category"] == "attack" else 0
     
     return ActionState(
+        action_id=f"{source_id}_{action_type}",
         action_type=action_type,
+        source_id=source_id,
+        target_id=target_id,
         state=ActionStateType.FEINT,
         phase=ActionPhase.STARTUP,
         visibility=visibility,
         commitment=commitment,
-        elapsed_time=0.0,
-        phase_time=0.0,
-        total_time=0.0,
-        modifiers={
+        properties={
             "stamina_cost": stamina_cost,
             "feint_cost": feint_cost,
             "speed_requirement": props.get("speed_requirement", 0.0),

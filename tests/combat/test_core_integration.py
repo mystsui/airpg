@@ -198,12 +198,12 @@ class TestCombatFlow:
         combat_system.execute_action(action)
         
         # Should progress through states
-        action_state = combat_system._action_system.get_action_state(action.id)
+        action_state = combat_system._action_system.get_action_state(action.action_id)
         assert action_state.state == ActionStateType.COMMIT
         
         # Complete action
         combat_system.update(1000)  # 1 second
-        action_state = combat_system._action_system.get_action_state(action.id)
+        action_state = combat_system._action_system.get_action_state(action.action_id)
         assert action_state.state == ActionStateType.RECOVERY
 
     def test_event_propagation(self, combat_system):
