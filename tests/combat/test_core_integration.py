@@ -11,52 +11,35 @@ from combat.lib.action_system import (
     ActionStateType,
     ActionVisibility,
     ActionCommitment,
-    ActionPhase
 )
-from combat.lib.event_system import (
-    EventCategory,
-    EventImportance,
-    EnhancedEvent
-)
-from combat.lib.awareness_system import (
-    AwarenessZone,
-    EnvironmentConditions
-)
-from combat.lib.actions_library import (
-    create_action,
-    validate_action_chain
-)
+
 from tests.combat.conftest import (
     create_test_combatant,
-    create_test_combatant_state,
-    PerformanceStats
 )
 
 def execute_attack_sequence(combat_system, attacker, defender):
     """Execute a complete attack sequence."""
     # Approach sequence
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "move_forward",
             attacker.id,
-            visibility=ActionVisibility.HIDDEN
         )
     )
     
     # Feint sequence
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "quick_attack",
             attacker.id,
             defender.id,
-            visibility=ActionVisibility.HIDDEN,
             commitment=ActionCommitment.NONE
         )
     )
     
     # Main attack
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "heavy_attack",
             attacker.id,
             defender.id,
@@ -68,7 +51,7 @@ def execute_defense_sequence(combat_system, defender, attacker):
     """Execute a complete defense sequence."""
     # Initial block
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "block",
             defender.id,
             commitment=ActionCommitment.PARTIAL
@@ -77,7 +60,7 @@ def execute_defense_sequence(combat_system, defender, attacker):
     
     # Counter attack
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "parry",
             defender.id,
             attacker.id,
@@ -87,7 +70,7 @@ def execute_defense_sequence(combat_system, defender, attacker):
     
     # Retreat
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "move_backward",
             defender.id
         )
@@ -97,7 +80,7 @@ def execute_movement_sequence(combat_system, mover, target):
     """Execute a complete movement sequence."""
     # Forward movement
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "move_forward",
             mover.id
         )
@@ -105,7 +88,7 @@ def execute_movement_sequence(combat_system, mover, target):
     
     # Evasive action
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "evade",
             mover.id
         )
@@ -113,7 +96,7 @@ def execute_movement_sequence(combat_system, mover, target):
     
     # Reposition
     combat_system.execute_action(
-        create_action(
+        combat_system._action_system.create_action(
             "move_backward",
             mover.id
         )
@@ -188,7 +171,7 @@ class TestCombatFlow:
         combat_system.add_combatant(defender)
         
         # Execute attack action
-        action = create_action(
+        action = combat_system._action_system.create_action(
             "quick_attack",
             attacker.id,
             defender.id

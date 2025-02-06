@@ -24,23 +24,40 @@ class EventDispatcherAdapter(IEventDispatcher):
         self._subscribers: Dict[str, List[Callable]] = {}
         self._event_streams: Dict[str, List[CombatEvent]] = {}
         
-    def dispatch_event(self, event: CombatEvent) -> None:
+    def dispatch(self, event: CombatEvent) -> None:
         """
         Dispatch a combat event.
         
         Args:
             event: Event to dispatch
         """
-        # Add to relevant streams
+        # Add to category stream
         stream_key = event.category.name.lower()
         if stream_key not in self._event_streams:
             self._event_streams[stream_key] = []
         self._event_streams[stream_key].append(event)
         
+        # Add to specific event type stream
+        event_stream_key = event.event_type.lower()
+        if event_stream_key not in self._event_streams:
+            self._event_streams[event_stream_key] = []
+        self._event_streams[event_stream_key].append(event)
+        
         # Notify subscribers
+        # Handle both specific event type and wildcard subscribers
+        handlers_to_notify = []
+        
+        # Add specific event type handlers
         if event.event_type in self._subscribers:
-            for handler in self._subscribers[event.event_type]:
-                handler(event)
+            handlers_to_notify.extend(self._subscribers[event.event_type])
+            
+        # Add wildcard handlers
+        if "*" in self._subscribers:
+            handlers_to_notify.extend(self._subscribers["*"])
+            
+        # Notify all handlers
+        for handler in handlers_to_notify:
+            handler(event)
                 
     def subscribe(self, event_type: str, handler: Callable) -> None:
         """
@@ -72,9 +89,19 @@ class EventDispatcherAdapter(IEventDispatcher):
         Get an event stream.
         
         Args:
-            stream_name: Name of stream
+            stream_name: Name of stream (category name or event type)
             
         Returns:
             EventStream containing events
         """
-        return EventStream(self._event_streams.get(stream_name, []))
+        # Convert to lowercase for case-insensitive matching
+        stream_key = stream_name.lower()
+        events = self._event_streams.get(stream_key, [])
+        
+        # Sort events by timestamp if they have one
+        sorted_events = sorted(
+            events,
+            key=lambda e: getattr(e, 'timestamp', 0)
+        )
+        
+        return EventStream(sorted_events)

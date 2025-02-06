@@ -17,6 +17,8 @@ from combat.interfaces import (
     IActionSystem
 )
 
+from combat.lib.actions_library import determine_action_visibility
+
 class ActionSystem(IActionSystem):
     """Manages action execution and state transitions."""
     
@@ -33,8 +35,8 @@ class ActionSystem(IActionSystem):
     def __init__(self):
         """Initialize the action system."""
         self._valid_transitions = {
-            ActionStateType.FEINT: {ActionStateType.COMMIT, ActionStateType.RELEASE},
-            ActionStateType.COMMIT: {ActionStateType.RELEASE},
+            ActionStateType.FEINT: {ActionStateType.COMMIT, ActionStateType.RELEASE, ActionStateType.RECOVERY},
+            ActionStateType.COMMIT: {ActionStateType.RELEASE, ActionStateType.RECOVERY},
             ActionStateType.RELEASE: {ActionStateType.RECOVERY},
             ActionStateType.RECOVERY: set()  # No transitions from recovery
         }
@@ -53,6 +55,11 @@ class ActionSystem(IActionSystem):
         Returns:
             Whether transition is valid
         """
+        # Allow any transition to RECOVERY
+        if next_state == ActionStateType.RECOVERY:
+            return True
+            
+        # Check valid transitions for other states
         return next_state in self._valid_transitions.get(current, set())
         
     def calculate_visibility(self,
@@ -200,8 +207,18 @@ class ActionSystem(IActionSystem):
             return not commitment or commitment != ActionCommitment.FULL
         return False
 
-    def create_action(self, action_type: str, source_id: str, target_id: Optional[str] = None) -> ActionState:
-        """Create a new action."""
+    def create_action(self, action_type: str, source_id: str, target_id: Optional[str] = None, commitment: ActionCommitment = ActionCommitment.NONE) -> ActionState:
+        """Create a new action.
+    
+        Args:
+            action_type: Type of action
+            source_id: Source combatant ID
+            target_id: Optional target ID
+            commitment: Action commitment level (default: NONE)
+            
+        Returns:
+            New ActionState instance
+        """
         action = ActionState(
             action_id=f"{action_type}_{len(self._actions)}",
             action_type=action_type,
@@ -209,10 +226,13 @@ class ActionSystem(IActionSystem):
             target_id=target_id,
             state=ActionStateType.FEINT,
             phase=ActionPhase.STARTUP,
-            visibility=ActionVisibility.TELEGRAPHED,
-            commitment=ActionCommitment.NONE,
+            visibility=determine_action_visibility(action_type),
+            commitment=commitment,
             properties={}
         )
+
+        print(f"DEBUG: Registered action {action.action_id}")  # Add logging
+        
         self._actions[action.action_id] = action
         return action
 
@@ -222,6 +242,7 @@ class ActionSystem(IActionSystem):
 
     def update_action_state(self, action_id: str, new_state: ActionState) -> None:
         """Update the state of an action."""
+        print(f"DEBUG: Updating action {action_id}, registered actions: {list(self._actions.keys())}")  # Add logging
         if action_id not in self._actions:
             raise ValueError(f"No action found with id {action_id}")
         self._actions[action_id] = new_state

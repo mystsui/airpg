@@ -168,6 +168,20 @@ def create_action(
         }
     )
 
+def determine_action_visibility(action_type: str) -> ActionVisibility:
+    """Get visibility for action type based on its properties."""
+    action_data = ACTIONS.get(action_type, {})
+    action_category = action_data.get("category", "neutral")
+    
+    visibility_map = {
+        "movement": ActionVisibility.HIDDEN,
+        "attack": ActionVisibility.HIDDEN,
+        "defense": ActionVisibility.TELEGRAPHED,
+        "neutral": ActionVisibility.TELEGRAPHED
+    }
+    
+    return visibility_map.get(action_category, ActionVisibility.TELEGRAPHED)
+
 def validate_action_chain(actions: List[ActionState]) -> bool:
     """
     Validate a chain of actions.

@@ -49,3 +49,12 @@ class AwarenessSystemAdapter(IAwarenessManager):
         Calculate visibility based on distance, angle, target stealth, observer perception and conditions.
         """
         return self._awareness_system.calculate_visibility(distance, angle, stealth, perception, conditions)
+        
+    def register_combatant(self, combatant_id: str) -> None:
+        """
+        Register a new combatant in the awareness system.
+        
+        Args:
+            combatant_id: Unique identifier for the combatant
+        """
+        self._awareness_system.register_combatant(combatant_id)

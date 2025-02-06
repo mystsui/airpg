@@ -6,7 +6,8 @@ while maintaining backward compatibility with existing code.
 """
 
 import random
-from typing import Optional, List
+from datetime import datetime
+from typing import Optional, List, Dict
 from combat.lib.actions_library import ACTIONS
 from combat.interfaces import (
     ICombatant,
@@ -18,7 +19,13 @@ from combat.interfaces import (
     EventImportance,
     CombatantState
 )
-from combat.interfaces.action_system import ActionState, ActionStateType, ActionPhase
+from combat.interfaces.action_system import (
+    ActionState,
+    ActionStateType,
+    ActionPhase,
+    ActionCommitment,
+    ActionVisibility
+)
 from combat.lib.action_system import ActionSystem
 from combat.adapters import (
     CombatantAdapter,
@@ -55,11 +62,62 @@ class CombatSystem:
         
         # Initialize collections
         self._combatants: List[ICombatant] = []
+        self._actions: Dict[str, ActionState] = {}
         self.next_event = None
         
         # Subscribe to events
         self._event_dispatcher.subscribe("action_completed", self._handle_action_completed)
         self._event_dispatcher.subscribe("state_changed", self._handle_state_changed)
+        self._event_dispatcher.subscribe("combat", self._handle_combat_event)
+        
+    def _handle_action_completed(self, event: CombatEvent) -> None:
+        """Handle action completion events."""
+        action_id = event.data.get("action_id")
+        if not action_id:
+            return
+            
+        # Get the action state
+        action = self._action_system.get_action_state(action_id)
+        if not action:
+            return
+            
+        # Update action state to recovery if needed
+        if action.state != ActionStateType.RECOVERY:
+            recovery_state = ActionState(
+                action_id=action.action_id,
+                action_type=action.action_type,
+                source_id=action.source_id,
+                target_id=action.target_id,
+                state=ActionStateType.RECOVERY,
+                phase=ActionPhase.RECOVERY,
+                visibility=action.visibility,
+                commitment=action.commitment,
+                properties=action.properties
+            )
+            self._action_system.update_action_state(action_id, recovery_state)
+            
+    def _handle_state_changed(self, event: CombatEvent) -> None:
+        """Handle state change events."""
+        # Update awareness based on state changes
+        if event.source_id and event.target_id:
+            source_state = self._state_manager.get_state(event.source_id)
+            target_state = self._state_manager.get_state(event.target_id)
+            
+            if source_state and target_state:
+                self._awareness_system.update_awareness(
+                    observer_id=event.source_id,
+                    target_id=event.target_id,
+                    observer_stats=source_state.stats,
+                    target_stats=target_state.stats,
+                    distance=self.distance,
+                    angle=90.0,  # Default angle
+                    current_time=self.timer
+                )
+                
+    def _handle_combat_event(self, event: CombatEvent) -> None:
+        """Handle combat events."""
+        # This handler is used to track combat events for testing
+        pass
 
     def add_combatant(self, combatant) -> None:
         """
@@ -125,17 +183,10 @@ class CombatSystem:
         
         if not source_state:
             raise ValueError(f"Invalid source combatant: {action.source_id}")
-            
-        # Create and track action in action system
-        system_action = self._action_system.create_action(
-            action_type=action.action_type,
-            source_id=action.source_id,
-            target_id=action.target_id
-        )
-        
+                    
         # Update action state with commit state
         action_with_commit = ActionState(
-            action_id=system_action.action_id,
+            action_id=action.action_id,
             action_type=action.action_type,
             source_id=action.source_id,
             target_id=action.target_id,
@@ -149,7 +200,8 @@ class CombatSystem:
         if not self._action_system.validate_action(action_with_commit):
             raise ValueError("Invalid action state transition")
             
-        self._action_system.update_action_state(system_action.action_id, action_with_commit)
+        # Update action state
+        self._action_system.update_action_state(action.action_id, action_with_commit)
             
         # Resolve the action
         result = self._action_resolver.resolve_action(action, source_state, target_state)
@@ -166,15 +218,22 @@ class CombatSystem:
                 current_time=self.timer
             )
         
-        # Rest of the method remains the same as in the previous implementation
-        # (Keeping the existing action resolution and state update logic)
-        
         # Update states based on result
         if result.success:
-            # Update source combatant
+            # Get action properties
+            action_data = ACTIONS.get(action.action_type, {})
+            stamina_cost = action_data.get('stamina_cost', 0)
+            
+            # Apply commitment modifiers to stamina cost
+            if action.commitment == ActionCommitment.PARTIAL:
+                stamina_cost *= 1.2  # 20% extra cost
+            elif action.commitment == ActionCommitment.FULL:
+                stamina_cost *= 1.5  # 50% extra cost
+            
+            # Update source combatant with proper stamina cost
             new_source_state = CombatantState(
                 entity_id=source_state.entity_id,
-                stamina=source_state.stamina - result.stamina_cost,
+                stamina=max(0, source_state.stamina - stamina_cost),  # Ensure stamina doesn't go negative
                 speed=source_state.speed,
                 stealth=source_state.stealth,
                 position_x=source_state.position_x,
@@ -206,7 +265,7 @@ class CombatSystem:
 
             # Dispatch action completed event
             self._dispatch_event("action_completed", {
-                "action_id": system_action.action_id,
+                "action_id": action.action_id,
                 "success": True,
                 "damage": result.damage,
                 "stamina_cost": result.stamina_cost,
@@ -216,8 +275,77 @@ class CombatSystem:
         else:
             # Dispatch action failed event
             self._dispatch_event("action_failed", {
-                "action_id": system_action.action_id,
+                "action_id": action.action_id,
                 "reason": "Action resolution failed"
             })
 
-    # Rest of the methods remain the same as in the previous implementation
+    def update(self, delta_time: float) -> None:
+        """
+        Update the combat system state.
+        
+        Args:
+            delta_time: Time elapsed since last update in milliseconds
+        """
+        self.timer += delta_time
+        
+        # Get all active actions
+        active_actions = {
+            action_id: action 
+            for action_id, action in self._action_system._actions.items()
+            if action.state != ActionStateType.RECOVERY
+        }
+        
+        # Update each action
+        for action_id, action in active_actions.items():
+            # Get action timing from actions library
+            action_data = ACTIONS.get(action.action_type, {})
+            action_duration = action_data.get('time', 1000)  # Default 1 second
+            
+            # Check if action should transition to recovery
+            if self.timer >= action_duration:
+                # Create recovery state
+                recovery_state = ActionState(
+                    action_id=action.action_id,
+                    action_type=action.action_type,
+                    source_id=action.source_id,
+                    target_id=action.target_id,
+                    state=ActionStateType.RECOVERY,
+                    phase=ActionPhase.RECOVERY,
+                    visibility=action.visibility,
+                    commitment=action.commitment,
+                    properties=action.properties
+                )
+                
+                # Update action state
+                self._action_system.update_action_state(action_id, recovery_state)
+                
+                # Dispatch event
+                self._dispatch_event(action.action_type, {
+                    "action_id": action_id,
+                    "source_id": action.source_id,
+                    "target_id": action.target_id,
+                    "state": "recovery"
+                })
+
+    def _dispatch_event(self, event_type: str, data: dict, category: EventCategory = EventCategory.COMBAT) -> None:
+        """
+        Dispatch an event with the given type and data.
+        
+        Args:
+            event_type: Type of event
+            data: Event data
+            category: Event category (defaults to COMBAT)
+        """
+        # Create unique event ID and use current time
+        self.event_counter += 1
+        event = CombatEvent(
+            event_id=f"{event_type}_{self.event_counter}",
+            event_type=event_type,
+            category=category,
+            importance=EventImportance.MAJOR,  # Use MAJOR for standard combat events
+            timestamp=datetime.now(),
+            source_id=data.get("source_id"),
+            target_id=data.get("target_id"),
+            data=data
+        )
+        self._event_dispatcher.dispatch(event)
