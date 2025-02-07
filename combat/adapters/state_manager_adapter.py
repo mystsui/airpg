@@ -20,7 +20,6 @@ from combat.lib.awareness_system import AwarenessSystem, AwarenessZone
 from combat.lib.action_system import (
     ActionState,
     ActionVisibility,
-    ActionCommitment
 )
 
 class StateTransitionError(Exception):
@@ -137,7 +136,6 @@ class StateManagerAdapter(IStateManager):
                 if not self._validate_action_state_transition(
                     ActionState(current_state),
                     ActionState(new_state),
-                    current_action.get("commitment") if current_action else None
                 ):
                     return False
             
@@ -150,18 +148,16 @@ class StateManagerAdapter(IStateManager):
     def _validate_action_state_transition(self,
                                        current_state: ActionState,
                                        new_state: ActionState,
-                                       commitment: Optional[str]) -> bool:
+                                       ) -> bool:
         """Validate action state transitions."""
-        # Can't transition if fully committed
-        if commitment == ActionCommitment.FULL.value:
-            return False
             
         # Valid state progressions
         valid_transitions = {
             ActionState.FEINT: {ActionState.COMMIT, ActionState.RELEASE},
             ActionState.COMMIT: {ActionState.RELEASE},
             ActionState.RELEASE: {ActionState.RECOVERY},
-            ActionState.RECOVERY: set()  # Can't transition from recovery
+            ActionState.RECOVERY: {ActionState.COMPLETE},  # Can't transition from recovery
+            ActionState.COMPLETE: set()
         }
         
         return new_state in valid_transitions.get(current_state, set())
@@ -170,11 +166,6 @@ class StateManagerAdapter(IStateManager):
         """Validate attack-related transitions."""
         current_action = current.stats.get("action")
         current_type = current_action.get("type") if current_action else None
-        current_commitment = current_action.get("commitment") if current_action else None
-        
-        # Can't attack if fully committed to another action
-        if current_commitment == ActionCommitment.FULL.value:
-            return False
             
         # Can only attack if not already attacking or blocking
         if current_type in ["try_attack", "release_attack", "blocking"]:
@@ -186,11 +177,6 @@ class StateManagerAdapter(IStateManager):
         """Validate block-related transitions."""
         current_action = current.stats.get("action")
         current_type = current_action.get("type") if current_action else None
-        current_commitment = current_action.get("commitment") if current_action else None
-        
-        # Can't block if fully committed
-        if current_commitment == ActionCommitment.FULL.value:
-            return False
             
         # Can't block while attacking
         if current_type in ["try_attack", "release_attack"]:
@@ -206,12 +192,7 @@ class StateManagerAdapter(IStateManager):
         """Validate evasion-related transitions."""
         current_action = current.stats.get("action")
         current_type = current_action.get("type") if current_action else None
-        current_commitment = current_action.get("commitment") if current_action else None
-        
-        # Can't evade if fully committed
-        if current_commitment == ActionCommitment.FULL.value:
-            return False
-            
+    
         # Can't evade while attacking or blocking
         if current_type in ["try_attack", "release_attack", "blocking"]:
             return False
@@ -226,11 +207,6 @@ class StateManagerAdapter(IStateManager):
         """Validate movement-related transitions."""
         current_action = current.stats.get("action")
         current_type = current_action.get("type") if current_action else None
-        current_commitment = current_action.get("commitment") if current_action else None
-        
-        # Can't move if fully committed
-        if current_commitment == ActionCommitment.FULL.value:
-            return False
             
         # Can't move while in certain states
         if current_type in ["try_attack", "release_attack", "blocking", "evading"]:

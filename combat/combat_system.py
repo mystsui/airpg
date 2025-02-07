@@ -22,8 +22,6 @@ from combat.interfaces import (
 from combat.interfaces.action_system import (
     ActionState,
     ActionStateType,
-    ActionPhase,
-    ActionCommitment,
     ActionVisibility
 )
 from combat.lib.action_system import ActionSystem
@@ -89,9 +87,7 @@ class CombatSystem:
                 source_id=action.source_id,
                 target_id=action.target_id,
                 state=ActionStateType.RECOVERY,
-                phase=ActionPhase.RECOVERY,
                 visibility=action.visibility,
-                commitment=action.commitment,
                 properties=action.properties
             )
             self._action_system.update_action_state(action_id, recovery_state)
@@ -184,24 +180,22 @@ class CombatSystem:
         if not source_state:
             raise ValueError(f"Invalid source combatant: {action.source_id}")
                     
-        # Update action state with commit state
-        action_with_commit = ActionState(
+        # Update action state to release
+        action_to_release = ActionState(
             action_id=action.action_id,
             action_type=action.action_type,
             source_id=action.source_id,
             target_id=action.target_id,
-            state=ActionStateType.COMMIT,
-            phase=ActionPhase.ACTIVE,
+            state=ActionStateType.RELEASE,  # Changed from COMMIT to RELEASE
             visibility=action.visibility,
-            commitment=action.commitment,
             properties=action.properties
         )
         
-        if not self._action_system.validate_action(action_with_commit):
+        if not self._action_system.validate_action(action_to_release):
             raise ValueError("Invalid action state transition")
             
         # Update action state
-        self._action_system.update_action_state(action.action_id, action_with_commit)
+        self._action_system.update_action_state(action.action_id, action_to_release)
             
         # Resolve the action
         result = self._action_resolver.resolve_action(action, source_state, target_state)
@@ -223,12 +217,6 @@ class CombatSystem:
             # Get action properties
             action_data = ACTIONS.get(action.action_type, {})
             stamina_cost = action_data.get('stamina_cost', 0)
-            
-            # Apply commitment modifiers to stamina cost
-            if action.commitment == ActionCommitment.PARTIAL:
-                stamina_cost *= 1.2  # 20% extra cost
-            elif action.commitment == ActionCommitment.FULL:
-                stamina_cost *= 1.5  # 50% extra cost
             
             # Update source combatant with proper stamina cost
             new_source_state = CombatantState(
@@ -310,9 +298,7 @@ class CombatSystem:
                     source_id=action.source_id,
                     target_id=action.target_id,
                     state=ActionStateType.RECOVERY,
-                    phase=ActionPhase.RECOVERY,
                     visibility=action.visibility,
-                    commitment=action.commitment,
                     properties=action.properties
                 )
                 

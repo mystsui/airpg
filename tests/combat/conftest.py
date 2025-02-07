@@ -12,8 +12,6 @@ from datetime import datetime
 from combat.lib.action_system import (
     ActionStateType,
     ActionVisibility,
-    ActionCommitment,
-    ActionPhase
 )
 
 @dataclass
@@ -204,7 +202,6 @@ def test_sequence():
                 "source": attacker_id,
                 "target": None,
                 "visibility": ActionVisibility.HIDDEN,
-                "commitment": ActionCommitment.NONE
             },
             # Feint
             {
@@ -212,7 +209,6 @@ def test_sequence():
                 "source": attacker_id,
                 "target": defender_id,
                 "visibility": ActionVisibility.HIDDEN,
-                "commitment": ActionCommitment.NONE
             },
             # Block
             {
@@ -220,7 +216,6 @@ def test_sequence():
                 "source": defender_id,
                 "target": None,
                 "visibility": ActionVisibility.TELEGRAPHED,
-                "commitment": ActionCommitment.PARTIAL
             },
             # Counter
             {
@@ -228,7 +223,6 @@ def test_sequence():
                 "source": defender_id,
                 "target": attacker_id,
                 "visibility": ActionVisibility.TELEGRAPHED,
-                "commitment": ActionCommitment.PARTIAL
             },
             # Retreat
             {
@@ -236,7 +230,6 @@ def test_sequence():
                 "source": defender_id,
                 "target": None,
                 "visibility": ActionVisibility.TELEGRAPHED,
-                "commitment": ActionCommitment.NONE
             }
         ]
     return create_sequence

@@ -22,7 +22,6 @@ from combat.lib.awareness_system import AwarenessSystem, AwarenessZone
 from combat.lib.action_system import (
     ActionState,
     ActionVisibility,
-    ActionCommitment,
     ActionStateType
 )
 from combat.lib.actions_library import ACTIONS
@@ -100,12 +99,6 @@ class ActionResolverAdapter(IActionResolver):
         action_props = ACTIONS[action.type]
         if "speed_requirement" in action_props:
             if actor_state.speed < action_props["speed_requirement"]:
-                return False
-                
-        # Check commitment state
-        if action.commitment == ActionCommitment.FULL:
-            # Can't cancel fully committed actions
-            if "cancel" in action.type:
                 return False
                 
         return True

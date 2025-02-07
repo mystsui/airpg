@@ -21,21 +21,6 @@ class ActionVisibility(Enum):
     TELEGRAPHED = auto()  # Clearly visible
     HIDDEN = auto()       # Stealthy action
 
-
-class ActionCommitment(Enum):
-    """Level of commitment required for an action."""
-    NONE = auto()     # Can be cancelled anytime
-    PARTIAL = auto()  # Limited cancellation with cost
-    FULL = auto()     # Cannot be cancelled
-
-
-class ActionPhase(Enum):
-    """Phase of action execution."""
-    STARTUP = auto()   # Initial phase
-    ACTIVE = auto()    # Main phase
-    RECOVERY = auto()  # Recovery phase
-
-
 @dataclass
 class ActionState:
     """State information for an action."""
@@ -44,9 +29,7 @@ class ActionState:
     source_id: str
     target_id: Optional[str]
     state: ActionStateType
-    phase: ActionPhase
     visibility: ActionVisibility
-    commitment: ActionCommitment
     properties: Dict[str, any]
 
 

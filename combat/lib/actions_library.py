@@ -10,8 +10,6 @@ from dataclasses import dataclass
 from combat.lib.action_system import (
     ActionStateType,
     ActionVisibility,
-    ActionCommitment,
-    ActionPhase,
     ActionState
 )
 
@@ -116,7 +114,6 @@ def create_action(
     source_id: str,
     target_id: Optional[str] = None,
     visibility: ActionVisibility = ActionVisibility.TELEGRAPHED,
-    commitment: ActionCommitment = ActionCommitment.NONE
 ) -> ActionState:
     """
     Create a new action instance.
@@ -126,7 +123,6 @@ def create_action(
         source_id: ID of action source
         target_id: Optional target ID
         visibility: Action visibility
-        commitment: Action commitment level
         
     Returns:
         New action state
@@ -141,13 +137,7 @@ def create_action(
     
     # Calculate base stamina cost
     stamina_cost = props["stamina_cost"]
-    
-    # Apply commitment modifiers
-    if commitment == ActionCommitment.PARTIAL:
-        stamina_cost *= 1.2  # 20% increase
-    elif commitment == ActionCommitment.FULL:
-        stamina_cost *= 1.5  # 50% increase
-        
+            
     # Calculate feint cost
     feint_cost = stamina_cost * 0.5 if props["category"] == "attack" else 0
     
@@ -157,9 +147,7 @@ def create_action(
         source_id=source_id,
         target_id=target_id,
         state=ActionStateType.FEINT,
-        phase=ActionPhase.STARTUP,
         visibility=visibility,
-        commitment=commitment,
         properties={
             "stamina_cost": stamina_cost,
             "feint_cost": feint_cost,
@@ -198,11 +186,7 @@ def validate_action_chain(actions: List[ActionState]) -> bool:
     for i in range(len(actions) - 1):
         current = actions[i]
         next_action = actions[i + 1]
-        
-        # Can't chain after full commitment
-        if current.commitment == ActionCommitment.FULL:
-            return False
-            
+                    
         # Can't chain certain categories
         if current.action_type == next_action.action_type:
             return False
@@ -252,14 +236,12 @@ def get_available_actions(state: 'CombatantState') -> List[ActionState]:
             available.append(create_action(
                 action_type,
                 state.entity_id,
-                commitment=ActionCommitment.PARTIAL
             ))
             
         if state.stamina >= props["stamina_cost"] * 1.5:
             available.append(create_action(
                 action_type,
                 state.entity_id,
-                commitment=ActionCommitment.FULL
             ))
             
         # Add hidden version for applicable actions
