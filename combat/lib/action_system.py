@@ -10,7 +10,7 @@ from combat.interfaces import (
     IActionSystem
 )
 
-from combat.lib.actions_library import determine_action_visibility
+from combat.lib.actions_library import ACTIONS
 
 class ActionSystem(IActionSystem):
     """Manages action execution and state transitions."""
@@ -54,16 +54,22 @@ class ActionSystem(IActionSystem):
         """Check if action can be cancelled."""
         return action.state == ActionStateType.FEINT
 
-    def create_action(self, action_type: str, source_id: str, target_id: Optional[str] = None) -> ActionState:
+    def create_action(self, action_type: str, source_id: str, target_id: Optional[str] = None, current_time: float = 0.0) -> ActionState:
         """Create a new action."""
+        
+        action_data = ACTIONS.get(action_type, {})
+        duration = action_data.get("time", 0.0)
+        
         action = ActionState(
             action_id=f"{action_type}_{len(self._actions)}",
             action_type=action_type,
             source_id=source_id,
             target_id=target_id,
             state=ActionStateType.FEINT,
-            visibility=determine_action_visibility(action_type),
-            properties={}
+            visibility=ACTIONS.determine_action_visibility(action_type),
+            properties={},
+            start_time=current_time,
+            duration=duration   
         )
         
         self._actions[action.action_id] = action

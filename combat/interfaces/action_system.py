@@ -31,6 +31,8 @@ class ActionState:
     state: ActionStateType
     visibility: ActionVisibility
     properties: Dict[str, any]
+    start_time: float = 0.0
+    duration: float = 0.0
 
 
 class IActionSystem(Protocol):

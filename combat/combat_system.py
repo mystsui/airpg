@@ -165,6 +165,18 @@ class CombatSystem:
             "combatant_id": state.entity_id,
             "team": new_state.stats["team"]
         })
+        
+    def cancel_action(self, action_id: str) -> bool:
+        """
+        Attempt to cancel an action.
+        
+        Args:
+            action_id: The ID of the action to cancel
+            
+        Returns:
+            bool indicating if the action was successfully cancelled
+        """
+        return self._action_system.cancel_action(action_id)
 
     def execute_action(self, action: ActionState) -> None:
         """
