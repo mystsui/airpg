@@ -284,17 +284,46 @@ character_service = CharacterService()
 
 # Create character with class-specific starting stats
 warrior = character_service.create_character(
-    name="Warrior",
+    name="Warrior", 
     character_class=CharacterClass.WARRIOR
 )
 
-# Initial stats are automatically set based on class:
-# WARRIOR:
-#   - Higher Strength and Constitution
-#   - Lower Intelligence
-# MAGE:
-#   - Higher Intelligence and Wisdom
-#   - Lower Strength
+# Initial stats should show actual values from CharacterService:
+'''
+Starting stats by class:
+WARRIOR: {
+    StatType.STRENGTH: 14,
+    StatType.CONSTITUTION: 12, 
+    StatType.DEXTERITY: 10,
+    StatType.INTELLIGENCE: 8,
+    StatType.WISDOM: 10,
+    StatType.CHARISMA: 10
+}
+ROGUE: {
+    StatType.STRENGTH: 10,
+    StatType.CONSTITUTION: 10,
+    StatType.DEXTERITY: 14,
+    StatType.INTELLIGENCE: 12,
+    StatType.WISDOM: 8,
+    StatType.CHARISMA: 10
+}
+MAGE: {
+    StatType.STRENGTH: 8,
+    StatType.CONSTITUTION: 10,
+    StatType.DEXTERITY: 10,
+    StatType.INTELLIGENCE: 14,
+    StatType.WISDOM: 12,
+    StatType.CHARISMA: 10
+}
+RANGER: {
+    StatType.STRENGTH: 10,
+    StatType.CONSTITUTION: 10,
+    StatType.DEXTERITY: 14,
+    StatType.INTELLIGENCE: 10,
+    StatType.WISDOM: 12,
+    StatType.CHARISMA: 8
+}
+'''
 ```
 
 ### Stat Management
@@ -324,19 +353,13 @@ total_strength = base_stats.get_total_stat(StatType.STRENGTH)
 2. **Derived Stats**
 ```python
 # Calculate derived statistics
-def calculate_derived_stats(character: Character) -> None:
-    # Health based on constitution
-    constitution = character.stats.get_total_stat(StatType.CONSTITUTION)
-    character.max_health = constitution * 10
-    
-    # Stamina based on constitution and dexterity
-    dexterity = character.stats.get_total_stat(StatType.DEXTERITY)
-    character.max_stamina = (constitution * 5) + (dexterity * 3)
-    
-    # Update combat-related stats
-    character.physical_defense = (constitution + character.stats.get_total_stat(StatType.STRENGTH)) // 2
-    character.magical_defense = (character.stats.get_total_stat(StatType.WISDOM) + 
-                               character.stats.get_total_stat(StatType.INTELLIGENCE)) // 2
+def _calculate_derived_stats(self) -> None:
+        """Calculate all derived statistics."""
+        self.max_health = self._calculate_max_health()
+        self.max_stamina = self._calculate_max_stamina()
+        self.physical_defense = self._calculate_physical_defense()
+        self.magical_defense = self._calculate_magical_defense()
+        self.initiative = self._calculate_initiative()
 ```
 
 ### Character Progression
@@ -356,12 +379,13 @@ def gain_experience(character: Character, amount: int) -> bool:
     return False
 
 def _apply_level_up_bonuses(character: Character) -> None:
-    # Apply class-specific stat increases
-    if character.character_class == CharacterClass.WARRIOR:
-        character.stats.set_base_stat(StatType.STRENGTH, 
-            character.stats.get_base_stat(StatType.STRENGTH) + 2)
-        character.stats.set_base_stat(StatType.CONSTITUTION,
-            character.stats.get_base_stat(StatType.CONSTITUTION) + 2)
+    # Should show actual implementation from CharacterService:
+    stat_increases = self._get_level_up_stats(character.character_class)
+    for stat_type, increase in stat_increases.items():
+        current = character.stats.get_base_stat(stat_type)
+        character.stats.set_base_stat(stat_type, current + increase)
+    
+    character._calculate_derived_stats()
 ```
 
 ### Combat Integration
@@ -397,6 +421,53 @@ def learn_skill(character: Character, skill: CharacterSkill) -> bool:
     # Add skill if requirements met
     character.skills.append(skill)
     return True
+```
+
+### Available Character Service Methods
+```python
+# Available Character Service Methods
+class CharacterService:
+    """Service layer for character management operations."""
+    
+    def create_character(self, name: str, character_class: CharacterClass) -> Character:
+        """Create a new character with default stats based on class."""
+        
+    def get_character(self, character_id: UUID) -> Optional[Character]:
+        """Retrieve a character by ID."""
+        
+    def level_up_character(self, character_id: UUID) -> bool:
+        """Process character level up."""
+        
+    def add_skill(self, character_id: UUID, skill: CharacterSkill) -> bool:
+        """Add a skill to a character."""
+        
+    def apply_modifier(self, character_id: UUID, stat_type: StatType, modifier: StatModifier) -> bool:
+        """Apply a stat modifier to a character."""
+        
+    def prepare_for_combat(self, character_id: UUID) -> Optional[CombatantState]:
+        """Convert character to combat state."""
+        character = self._characters.get(character_id)
+        if not character:
+            return None
+            
+        return character.to_combat_state()
+```
+
+### Character ID Implementation
+```python
+# Character ID Implementation
+"""
+Characters use UUID for identification:
+from uuid import UUID, uuid4
+from dataclasses import field
+
+@dataclass
+class Character:
+    id: UUID = field(default_factory=uuid4)  # Automatically generated
+    name: str
+    character_class: CharacterClass
+    # ...other fields
+"""
 ```
 
 ## Event System

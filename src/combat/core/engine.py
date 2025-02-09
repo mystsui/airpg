@@ -1,8 +1,9 @@
 from typing import Dict, List, Optional, Tuple
+from ..core.combat_processor import CombatProcessor
 from ..models.state import CombatState
 from ..models.actions import Action, ActionResult
 from ..models.combatant import CombatantState
-from ..events.event import CombatEvent
+from ..events.event import ActionEvent
 from ..events.event_bus import EventBus
 
 class CombatEngine:
@@ -14,6 +15,7 @@ class CombatEngine:
         self._event_bus = EventBus()
         self._current_state: Optional[CombatState] = None
         self._action_queue: List[Tuple[str, Action]] = []
+        self._processor = CombatProcessor()
 
     def initialize_combat(self, initial_state: CombatState) -> None:
         """Initialize a new combat instance with the given state."""
@@ -70,11 +72,12 @@ class CombatEngine:
             results.append(result)
             
             # Publish event for action completion
-            event = CombatEvent(
-                action=action,
-                result=result,
-                pre_state=self._current_state,
-                post_state=new_state
+            event = ActionEvent(
+                    action=action,
+                    actor_id=combatant_id,
+                    previous_state=self._current_state,
+                    current_state=new_state,
+                    result=result.__dict__
             )
             self._event_bus.publish("action.completed", event)
 
@@ -105,18 +108,28 @@ class CombatEngine:
                 messages=["Action requirements not met"]
             )
 
-        # Apply action costs
-        actor.stamina -= action.costs.stamina
-        actor.health -= action.costs.health
-
-        # TODO: Implement specific action type handling
-        # This will be expanded based on ActionType implementations
-
-        return ActionResult(
-            action_id=action.id,
-            success=True,
-            effects={"stamina_cost": action.costs.stamina}
-        )
+        # Process the action using CombatProcessor
+        try:
+            new_state, result = self._processor.process_action(state, combatant_id, action)
+            
+            # Update the state with the result
+            state.combatants.update(new_state.combatants)
+            
+            # Publish action execution event
+            self._event_bus.publish("action.executed", {
+                "actor_id": combatant_id,
+                "action": action,
+                "result": result
+            })
+            
+            return result
+            
+        except Exception as e:
+            return ActionResult(
+                action_id=action.id,
+                success=False,
+                messages=[f"Action execution failed: {str(e)}"]
+            )
 
     @property
     def current_state(self) -> Optional[CombatState]:

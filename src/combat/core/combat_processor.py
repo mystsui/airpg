@@ -1,10 +1,10 @@
 from typing import Dict, List, Optional, Tuple, Protocol
 from dataclasses import dataclass
 from ..models.state import CombatState
-from ..models.actions import Action, ActionResult, ActionType, ActionCost
+from ..models.actions import Action, ActionResult, ActionType, ActionCosts
 from ..models.combatant import CombatantState
 from ..models.effects import StatusEffect
-from ..common.errors import CombatProcessingError
+from common.errors import CombatProcessingError
 
 class DamageCalculator(Protocol):
     """Protocol for damage calculation strategies."""
@@ -47,7 +47,7 @@ class CombatProcessor:
             ActionType.MOVE: self._process_move,
             ActionType.SKILL: self._process_skill,
             ActionType.ITEM: self._process_item,
-            ActionType.WAIT: self._process_wait
+            # ActionType.WAIT: self._process_wait
         }
 
     def process_action(self, state: CombatState, actor_id: str, action: Action) -> Tuple[CombatState, ActionResult]:
